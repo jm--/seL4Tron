@@ -17,6 +17,7 @@
 #include <sel4platsupport/platsupport.h>
 #include <sel4utils/vspace.h>
 #include <simple-stable/simple-stable.h>
+#include "graphics.h"
 
 /* memory management: Virtual Kernel Allocator (VKA) interface and VSpace */
 static vka_t vka;
@@ -49,7 +50,7 @@ static sel4utils_alloc_data_t allocData;
  * The code to initialize simple, allocman, vka, and vspace is modeled
  * after the "sel4test-driver" app:
  * https://github.com/seL4/sel4test/blob/master/apps/sel4test-driver/src/main.c
-*/
+ */
 static void
 setup_system()
 {
@@ -94,7 +95,7 @@ int main()
     /* enable serial driver */
     platsupport_serial_setup_simple(NULL, &simple, &vka);
 
-    printf("\n\n=== testing ========= \n\n");
-
+    printf("\n\n========= starting ========= \n\n");
+    printVBE(bootinfo2);
     return 0;
 }
