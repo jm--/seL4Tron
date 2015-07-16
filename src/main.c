@@ -19,6 +19,9 @@
 #include <simple-stable/simple-stable.h>
 #include "graphics.h"
 
+
+
+
 /* memory management: Virtual Kernel Allocator (VKA) interface and VSpace */
 static vka_t vka;
 static vspace_t vspace;
@@ -31,6 +34,9 @@ static seL4_BootInfo *bootinfo;
 
 /* root task's IA32_BootInfo */
 static seL4_IA32_BootInfo *bootinfo2;
+
+/* platsupport I/O */
+static ps_io_ops_t io_ops;
 
 /* amount of virtual memory for the allocator to use */
 #define VIRT_POOL_SIZE (BIT(seL4_PageBits) * 200)
@@ -85,6 +91,10 @@ setup_system()
     assert(vres.res);
     bootstrap_configure_virtual_pool(allocman, vaddr, VIRT_POOL_SIZE,
             seL4_CapInitThreadPD);
+
+    /* initialize io_ops */
+    err = sel4platsupport_new_io_ops(simple, vspace, vka, &io_ops);
+    assert(err == 0);
 }
 
 
@@ -96,6 +106,8 @@ int main()
     platsupport_serial_setup_simple(NULL, &simple, &vka);
 
     printf("\n\n========= starting ========= \n\n");
-    printVBE(bootinfo2);
+    gfx_print_IA32BootInfo(bootinfo2);
+    fb_t fb = gfx_map_video_ram(&io_ops.io_mapper, &bootinfo2->vbeModeInfoBlock);
+    gfx_display_testpic(fb, &bootinfo2->vbeModeInfoBlock);
     return 0;
 }

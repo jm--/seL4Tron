@@ -9,20 +9,46 @@
 
 #include "graphics.h"
 
+fb_t
+gfx_map_video_ram(ps_io_mapper_t *io_mapper, seL4_VBEModeInfoBlock* mib) {
+    size_t size = mib->yRes * mib->linBytesPerScanLine;
+    void* vram = ps_io_map(io_mapper,
+            mib->physBasePtr,
+            size,
+            0,
+            PS_MEM_NORMAL);
+    assert(vram != NULL);
+    return (fb_t)vram;
+}
+
+
 void
-printVBE(seL4_IA32_BootInfo* bootinfo2) {
-    seL4_VBEInfoBlock* ib      = &bootinfo2->vbeInfoBlock;
-    seL4_VBEModeInfoBlock* mib = &bootinfo2->vbeModeInfoBlock;
+gfx_display_testpic(fb_t fb, seL4_VBEModeInfoBlock* mib) {
+    uint8_t* p = (uint8_t*) fb;
+    size_t size = mib->yRes * mib->linBytesPerScanLine;
+    for (int i = 0; i < size; i++) {
+        /* set pixel;
+         * depending on color depth, one pixel is 1, 2, or 3 bytes */
+        *(p + i) = i % 256; //generates some pattern
+    }
+}
+
+
+
+void
+gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
+    seL4_VBEInfoBlock* ib      = &bootinfo->vbeInfoBlock;
+    seL4_VBEModeInfoBlock* mib = &bootinfo->vbeModeInfoBlock;
 
     printf("\n");
     printf("=== VBE begin ===========\n");
-    printf("vbeMode: 0x%x\n", bootinfo2->vbeMode);
+    printf("vbeMode: 0x%x\n", bootinfo->vbeMode);
     printf("  VESA mode=%d; linear frame buffer=%d\n",
-            (bootinfo2->vbeMode & BIT(8)) != 0,
-            (bootinfo2->vbeMode & BIT(14)) != 0);
-    printf("vbeInterfaceSeg: 0x%x\n", bootinfo2->vbeInterfaceSeg);
-    printf("vbeInterfaceOff: 0x%x\n", bootinfo2->vbeInterfaceOff);
-    printf("vbeInterfaceLen: 0x%x\n", bootinfo2->vbeInterfaceLen);
+            (bootinfo->vbeMode & BIT(8)) != 0,
+            (bootinfo->vbeMode & BIT(14)) != 0);
+    printf("vbeInterfaceSeg: 0x%x\n", bootinfo->vbeInterfaceSeg);
+    printf("vbeInterfaceOff: 0x%x\n", bootinfo->vbeInterfaceOff);
+    printf("vbeInterfaceLen: 0x%x\n", bootinfo->vbeInterfaceLen);
 
     printf("ib->signature: %c%c%c%c\n",
             ib->signature[0],

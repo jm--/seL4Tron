@@ -12,11 +12,32 @@
 
 #include <stdio.h>
 #include <sel4/arch/bootinfo.h>
+#include <sel4platsupport/io.h>
+
+
+/* pointer to base address of (linear) frame buffer */
+typedef uint8_t* fb_t;
+
+
+/*
+ * Map complete linear frame buffer.
+ */
+fb_t
+gfx_map_video_ram(ps_io_mapper_t *io_mapper, seL4_VBEModeInfoBlock* mib);
+
+
+/*
+ * Fill frame buffer with some values; i.e., display a test picture.
+ * @param fb base address of frame buffer
+ *           (this virtual address is not mapped 1:1)
+ */
+void
+gfx_display_testpic(fb_t fb, seL4_VBEModeInfoBlock* mib);
 
 
 /*
  * Print the VBE (VESA Bios Extension) conveniently included in the
- * boot info available to the root task.
+ * IA32_BootInfo available to the root task.
  *
  * The InfoBlock struc is returned by VBE function 00h.
  * The ModeInfoBlock struc is returned by VBE function 01h.
@@ -26,7 +47,7 @@
  * GNU "Multiboot Specification" for details.
  */
 void
-printVBE(seL4_IA32_BootInfo* bootinfo2);
+gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
 
 
 #endif /* GRAPHICS_H_ */
