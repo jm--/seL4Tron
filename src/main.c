@@ -17,6 +17,7 @@
 #include <platsupport/timer.h>
 #include <sel4platsupport/platsupport.h>
 #include <sel4platsupport/plat/timer.h>
+#include <sel4platsupport/arch/io.h>
 #include <sel4utils/vspace.h>
 #include <simple-stable/simple-stable.h>
 #include "graphics.h"
@@ -58,6 +59,10 @@ static seL4_timer_t* tsc_timer;
 
 /* async endpoint for periodic timer */
 static vka_object_t timer_aep;
+
+/* input character device (e.g. keyboard, COM1) */
+static ps_chardevice_t inputdev;
+
 
 // ======================================================================
 #define xRes 640
@@ -111,8 +116,12 @@ setup_system()
     bootstrap_configure_virtual_pool(allocman, vaddr, VIRT_POOL_SIZE,
             seL4_CapInitThreadPD);
 
-    /* initialize io_ops */
-    err = sel4platsupport_new_io_ops(simple, vspace, vka, &io_ops);
+    /* initialize platsupport IO: virt memory */
+    err = sel4platsupport_new_io_mapper(simple, vspace, vka, &io_ops.io_mapper);
+    assert(err == 0);
+
+    /* initialize platsupport IO: ports */
+    err = sel4platsupport_get_io_port_ops(&io_ops.io_port_ops, &simple);
     assert(err == 0);
 }
 
@@ -171,6 +180,24 @@ wait_for_timer()
     }
 }
 
+static void
+init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
+    ps_chardevice_t *ret;
+    ret = ps_cdev_init(id, &io_ops, dev);
+    assert(ret != NULL);
+}
+
+static void
+handle_user_input() {
+    for (int i = 0;;i++) {
+        int c = ps_cdev_getchar(&inputdev);
+        if (c == EOF) {
+            //read till we get EOF
+            break;
+        }
+        printf("(%d) You typed [%c] [%d]\n", i, c, c);
+    }
+}
 
 
 inline static void
@@ -186,6 +213,10 @@ int main()
     platsupport_serial_setup_simple(NULL, &simple, &vka);
 
     printf("\n\n========= starting ========= \n\n");
+
+    printf("initialize serial keyboard\n");
+    init_cdev(PC99_KEYBOARD_PS2, &inputdev);
+
     gfx_print_IA32BootInfo(bootinfo2);
     gfx_init_IA32BootInfo(bootinfo2);
     gfx_map_video_ram(&io_ops.io_mapper);
@@ -199,6 +230,7 @@ int main()
     for (int y = 0; y < numCellsY; y++) {
         for (int x = 0; x < numCellsX; x++) {
             wait_for_timer();
+            handle_user_input();
             draw_cell(x, y);
         }
     }
