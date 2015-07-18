@@ -107,7 +107,8 @@ int main()
 
     printf("\n\n========= starting ========= \n\n");
     gfx_print_IA32BootInfo(bootinfo2);
-    fb_t fb = gfx_map_video_ram(&io_ops.io_mapper, &bootinfo2->vbeModeInfoBlock);
+    gfx_init_IA32BootInfo(bootinfo2);
+    fb_t fb = gfx_map_video_ram(&io_ops.io_mapper);
     gfx_display_testpic(fb, &bootinfo2->vbeModeInfoBlock);
     return 0;
 }

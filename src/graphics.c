@@ -9,27 +9,40 @@
 
 #include "graphics.h"
 
+static seL4_VBEModeInfoBlock mib;
+static fb_t fb = NULL;
+
+void
+gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
+    mib = bootinfo->vbeModeInfoBlock;
+}
+
+void
+gfx_poke_fbxy(const int x, const int y, const uint8_t val) {
+    fb[y *  mib.linBytesPerScanLine + x] = val;
+}
+
 fb_t
-gfx_map_video_ram(ps_io_mapper_t *io_mapper, seL4_VBEModeInfoBlock* mib) {
-    size_t size = mib->yRes * mib->linBytesPerScanLine;
-    void* vram = ps_io_map(io_mapper,
-            mib->physBasePtr,
+gfx_map_video_ram(ps_io_mapper_t *io_mapper) {
+    size_t size = mib.yRes * mib.linBytesPerScanLine;
+    fb = (fb_t) ps_io_map(io_mapper,
+            mib.physBasePtr,
             size,
             0,
             PS_MEM_NORMAL);
-    assert(vram != NULL);
-    return (fb_t)vram;
+    assert(fb != NULL);
+    return fb;
 }
 
 
 void
-gfx_display_testpic(fb_t fb, seL4_VBEModeInfoBlock* mib) {
-    uint8_t* p = (uint8_t*) fb;
-    size_t size = mib->yRes * mib->linBytesPerScanLine;
+gfx_display_testpic() {
+    assert(fb != NULL);
+    size_t size = mib.yRes * mib.linBytesPerScanLine;
     for (int i = 0; i < size; i++) {
         /* set pixel;
          * depending on color depth, one pixel is 1, 2, or 3 bytes */
-        *(p + i) = i % 256; //generates some pattern
+        fb[i] = i % 256; //generates some pattern
     }
 }
 

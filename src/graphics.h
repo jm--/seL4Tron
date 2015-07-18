@@ -19,11 +19,19 @@
 typedef uint8_t* fb_t;
 
 
+void
+gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
+
+
+void
+gfx_poke_fbxy(const int x, const int y, const uint8_t val);
+
+
 /*
  * Map complete linear frame buffer.
  */
 fb_t
-gfx_map_video_ram(ps_io_mapper_t *io_mapper, seL4_VBEModeInfoBlock* mib);
+gfx_map_video_ram(ps_io_mapper_t *io_mapper);
 
 
 /*
@@ -32,11 +40,11 @@ gfx_map_video_ram(ps_io_mapper_t *io_mapper, seL4_VBEModeInfoBlock* mib);
  *           (this virtual address is not mapped 1:1)
  */
 void
-gfx_display_testpic(fb_t fb, seL4_VBEModeInfoBlock* mib);
+gfx_display_testpic();
 
 
 /*
- * Print the VBE (VESA Bios Extension) conveniently included in the
+ * Print the VBE (VESA Bios Extension), which is conveniently included in the
  * IA32_BootInfo available to the root task.
  *
  * The InfoBlock struc is returned by VBE function 00h.
