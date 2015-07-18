@@ -14,7 +14,9 @@
 #include <sel4/arch/bootinfo.h>
 #include <allocman/bootstrap.h>
 #include <allocman/vka.h>
+#include <platsupport/timer.h>
 #include <sel4platsupport/platsupport.h>
+#include <sel4platsupport/plat/timer.h>
 #include <sel4utils/vspace.h>
 #include <simple-stable/simple-stable.h>
 #include "graphics.h"
@@ -48,7 +50,18 @@ static char memPool[POOL_SIZE];
 /* for virtual memory bootstrapping */
 static sel4utils_alloc_data_t allocData;
 
+/* platsupport (periodic) timer */
+static seL4_timer_t* timer;
+
+/* platsupport TSC based timer */
+static seL4_timer_t* tsc_timer;
+
+/* async endpoint for periodic timer */
+static vka_object_t timer_aep;
+
 // ======================================================================
+static uint16_t xRes = 640;
+static uint16_t yRes = 480;
 
 /*
  * Initialize all main data structures.
@@ -98,6 +111,59 @@ setup_system()
 }
 
 
+static void
+init_timers()
+{
+    // get an endpoint for the timer IRQ (interrupt handler)
+    UNUSED int err = vka_alloc_async_endpoint(&vka, &timer_aep);
+    assert(err == 0);
+
+    // get the timer
+    timer = sel4platsupport_get_default_timer(&vka, &vspace, &simple, timer_aep.cptr);
+    assert(timer != NULL);
+
+    // get a TSC timer (forward marching time); use
+    // timer_get_time(tsc_timer) to get current time (in ns)
+    tsc_timer = sel4platsupport_get_tsc_timer(timer);
+    assert(tsc_timer != NULL);
+}
+
+
+static void
+start_periodic_timer() {
+    //setup periodic timer
+    UNUSED int err = timer_periodic(timer->timer, 10 * NS_IN_MS);
+    assert(err == 0);
+
+    //start timer (no-op for PIT)
+    err = timer_start(timer->timer);
+    assert(err == 0);
+
+    //Ack IRQ for good measure
+    sel4_timer_handle_single_irq(timer);
+}
+
+
+static void
+stop_periodic_timer() {
+    UNUSED int err = timer_stop(timer->timer);
+    assert(err == 0);
+
+    sel4_timer_handle_single_irq(timer);
+}
+
+
+static void
+wait_for_timer()
+{
+    //wait for timer interrupt to occur
+    seL4_Wait(timer_aep.cptr, NULL);
+
+    //Ack IRQ
+    sel4_timer_handle_single_irq(timer);
+}
+
+
 int main()
 {
     setup_system();
@@ -108,7 +174,21 @@ int main()
     printf("\n\n========= starting ========= \n\n");
     gfx_print_IA32BootInfo(bootinfo2);
     gfx_init_IA32BootInfo(bootinfo2);
-    fb_t fb = gfx_map_video_ram(&io_ops.io_mapper);
-    gfx_display_testpic(fb, &bootinfo2->vbeModeInfoBlock);
+    gfx_map_video_ram(&io_ops.io_mapper);
+    //gfx_display_testpic();
+
+    printf("initialize timers\n");
+    fflush(stdout);
+    init_timers();
+    start_periodic_timer();
+
+    for (int y = 0; y < yRes; y++) {
+        for (int x = 0; x < xRes; x++) {
+            gfx_poke_fbxy(x, y, 11);
+            wait_for_timer();
+        }
+    }
+    stop_periodic_timer();
+
     return 0;
 }
