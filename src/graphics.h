@@ -18,13 +18,14 @@
 /* pointer to base address of (linear) frame buffer */
 typedef uint8_t* fb_t;
 
+typedef uint8_t color_t;
 
 void
 gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
 
 
 void
-gfx_poke_fbxy(const int x, const int y, const uint8_t val);
+gfx_poke_fb(const uint32_t offset, const uint8_t val);
 
 
 /*
@@ -57,5 +58,14 @@ gfx_display_testpic();
 void
 gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
 
+
+/*
+ * Draw a rectangle and fill it.
+ * @param x,y: top left corner
+ * @param w,h: widht and height
+ * @param c:  fill color
+ */
+void
+gfx_draw_rect(const int x, const int y, const int w , const int h, color_t c);
 
 #endif /* GRAPHICS_H_ */

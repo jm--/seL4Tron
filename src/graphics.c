@@ -7,6 +7,12 @@
  *
  */
 
+
+/*
+ * Code here is not optimized for performance and only
+ * handles 8 bits per pixel memory layouts.
+ */
+
 #include "graphics.h"
 
 static seL4_VBEModeInfoBlock mib;
@@ -18,8 +24,8 @@ gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
 }
 
 void
-gfx_poke_fbxy(const int x, const int y, const uint8_t val) {
-    fb[y *  mib.linBytesPerScanLine + x] = val;
+gfx_poke_fb(const uint32_t offset, const uint8_t val) {
+    fb[offset] = val;
 }
 
 fb_t
@@ -125,3 +131,18 @@ gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
     printf("=== VBE end ===========\n");
 }
 
+
+inline static void
+gfx_draw_point(const int x, const int y, const color_t c) {
+    fb[y *  mib.linBytesPerScanLine + x] = c;
+}
+
+
+void
+gfx_draw_rect(const int x, const int y, const int w , const int h, color_t c) {
+    for (int i = 0; i < w; i++) {
+        for (int j = 0; j < h; j++) {
+            gfx_draw_point(x + i, y + j, c);
+        }
+    }
+}

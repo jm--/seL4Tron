@@ -60,9 +60,15 @@ static seL4_timer_t* tsc_timer;
 static vka_object_t timer_aep;
 
 // ======================================================================
-static uint16_t xRes = 640;
-static uint16_t yRes = 480;
+#define xRes 640
+#define yRes 480
+#define cellWidth 10
+#define numCellsX (xRes / cellWidth)
+#define numCellsY (yRes / cellWidth)
 
+/* number of cells per second */
+static int speed = 10;
+// ======================================================================
 /*
  * Initialize all main data structures.
  *
@@ -156,13 +162,21 @@ stop_periodic_timer() {
 static void
 wait_for_timer()
 {
-    //wait for timer interrupt to occur
-    seL4_Wait(timer_aep.cptr, NULL);
+    for (int i = 0; i < 100 / speed; i++) {
+        //wait for timer interrupt to occur
+        seL4_Wait(timer_aep.cptr, NULL);
 
-    //Ack IRQ
-    sel4_timer_handle_single_irq(timer);
+        //Ack IRQ
+        sel4_timer_handle_single_irq(timer);
+    }
 }
 
+
+
+inline static void
+draw_cell(const int cx, const int cy) {
+    gfx_draw_rect(cx * cellWidth, cy * cellWidth, cellWidth, cellWidth, 11);
+}
 
 int main()
 {
@@ -182,10 +196,10 @@ int main()
     init_timers();
     start_periodic_timer();
 
-    for (int y = 0; y < yRes; y++) {
-        for (int x = 0; x < xRes; x++) {
-            gfx_poke_fbxy(x, y, 11);
+    for (int y = 0; y < numCellsY; y++) {
+        for (int x = 0; x < numCellsX; x++) {
             wait_for_timer();
+            draw_cell(x, y);
         }
     }
     stop_periodic_timer();
