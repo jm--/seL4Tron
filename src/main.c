@@ -65,14 +65,37 @@ static ps_chardevice_t inputdev;
 
 
 // ======================================================================
+
+typedef enum { North, South, East, West} direction_t;
+
+typedef struct player {
+    int cellx;
+    int celly;
+    direction_t direction;
+} player_t;
+
+
 #define xRes 640
 #define yRes 480
 #define cellWidth 10
 #define numCellsX (xRes / cellWidth)
 #define numCellsY (yRes / cellWidth)
 
+//#define CELL_EMPTY 0
+//#define CELL_P1 1
+//#define CELL_P2 2
+//#define CELL_WALL 4
+
 /* number of cells per second */
 static int speed = 10;
+
+typedef enum { CELL_EMPTY, CELL_P1, CELL_P2, CELL_WALL} cell_t ;
+cell_t board[numCellsX][numCellsY];
+//uint8_t board[numCellsX][numCellsY];
+
+player_t p1;
+player_t p2;
+
 // ======================================================================
 /*
  * Initialize all main data structures.
@@ -201,8 +224,62 @@ handle_user_input() {
 
 
 inline static void
-draw_cell(const int cx, const int cy) {
-    gfx_draw_rect(cx * cellWidth, cy * cellWidth, cellWidth, cellWidth, 11);
+draw_cell(const int cx, const int cy, int color) {
+    gfx_draw_rect(cx * cellWidth, cy * cellWidth, cellWidth, cellWidth, color);
+}
+
+
+void init_game() {
+    p1 = (player_t) {
+            .cellx = numCellsX * 3 / 4,
+            .celly = numCellsY / 2,
+            .direction = East
+    };
+    p2 = (player_t) {
+            .cellx = numCellsX * 1 / 4,
+            .celly = numCellsY / 2,
+            .direction = West
+    };
+
+    cell_t cell;
+    for (int y = 0; y < numCellsY; y++) {
+        for (int x = 0; x < numCellsX; x++) {
+            if (x == 0 || x == numCellsX -1  || y == 0 || y == numCellsY - 1) {
+                cell = CELL_WALL;
+            } else if (x == p1.cellx && y == p1.celly) {
+                cell = CELL_P1;
+            } else if (x == p2.cellx && y == p2.celly) {
+                cell = CELL_P2;
+            } else {
+                cell = CELL_EMPTY;
+            }
+            board[x][y] = cell;
+            draw_cell(x, y, cell);
+        }
+    }
+
+//    // top wall
+//    gfx_draw_rect(0, 0, xRes, cellWidth, CELL_WALL);
+//    // left wall
+//    gfx_draw_rect(0, 0, cellWidth, yRes, CELL_WALL);
+//    // right wall
+//    gfx_draw_rect(xRes - cellWidth , 0, cellWidth, yRes, CELL_WALL);
+//    // bottom wall
+//    gfx_draw_rect(0, 0, xRes, cellWidth, CELL_WALL);
+}
+
+void run_game_2player() {
+    init_game();
+
+    start_periodic_timer();
+    for (int y = 0; y < numCellsY; y++) {
+        for (int x = 0; x < numCellsX; x++) {
+            wait_for_timer();
+            handle_user_input();
+            draw_cell(x, y, 3);
+        }
+    }
+    stop_periodic_timer();
 }
 
 int main()
@@ -220,21 +297,16 @@ int main()
     gfx_print_IA32BootInfo(bootinfo2);
     gfx_init_IA32BootInfo(bootinfo2);
     gfx_map_video_ram(&io_ops.io_mapper);
-    //gfx_display_testpic();
+    gfx_display_testpic();
 
     printf("initialize timers\n");
     fflush(stdout);
     init_timers();
-    start_periodic_timer();
+    printf("done\n");
 
-    for (int y = 0; y < numCellsY; y++) {
-        for (int x = 0; x < numCellsX; x++) {
-            wait_for_timer();
-            handle_user_input();
-            draw_cell(x, y);
-        }
+    for (;;) {
+        printf("menu/splash screen");
+        run_game_2player();
     }
-    stop_periodic_timer();
-
     return 0;
 }
