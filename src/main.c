@@ -75,17 +75,20 @@ direction_t dir_back[] = { East, South, West, North};
 
 char *keymap[] = { "jilk", "awds"};
 
-char deltax[] = {-1, 0 , 1, 0 };
-char deltay[] = {0, -1 , 0, 1 };
+int deltax[] = {-1, 0 , 1, 0 };
+int deltay[] = {0, -1 , 0, 1 };
 
 
 typedef struct player {
+    /* player's current x cell position on the board */
     int cellx;
+    /* player's current y cell position on the board */
     int celly;
+    /* direction player is currently facing and moving next */
     direction_t direction;
+    /* color of the player's trail */
     color_t color;
 } player_t;
-
 
 #define xRes 640
 #define yRes 480
@@ -93,17 +96,14 @@ typedef struct player {
 #define numCellsX (xRes / cellWidth)
 #define numCellsY (yRes / cellWidth)
 
-//#define CELL_EMPTY 0
-//#define CELL_P1 1
-//#define CELL_P2 2
-//#define CELL_WALL 4
-
-/* number of cells per second */
+/* speed in cells per second */
 static int speed = 10;
 
+/* possible things that can be placed on the board */
 typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
+
+/* the board is made of cells; cell coordinate (0,0) is in top left corner */
 cell_t board[numCellsX][numCellsY];
-//uint8_t board[numCellsX][numCellsY];
 
 player_t players[NUMPLAYERS];
 player_t* p0 = players + 0;
@@ -224,21 +224,10 @@ init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
     assert(ret != NULL);
 }
 
-//static void
-//handle_user_input() {
-//    for (int i = 0;;i++) {
-//        int c = ps_cdev_getchar(&inputdev);
-//        if (c == EOF) {
-//            //read till we get EOF
-//            break;
-//        }
-//        printf("(%d) You typed [%c] [%d]\n", i, c, c);
-//    }
-//}
 
 static int
 handle_user_input() {
-    for (;;) {
+    for (;;) { // (1)
         int c = ps_cdev_getchar(&inputdev);
         if (c == EOF) {
             //read till we get EOF
@@ -248,8 +237,13 @@ handle_user_input() {
             // ESC key was pressed - quit game
             return 1;
         }
+
+        // check for all players
         for (int pl = 0; pl < NUMPLAYERS; pl++) {
+            // check all directions
             for (int dir = 0; dir < DirLength; dir++) {
+                // update player's current direction according to
+                // pressed button, but don't let player move backwards
                 if (c == keymap[pl][dir]
                 && dir != dir_back[players[pl].direction]) {
                     players[pl].direction = dir;
@@ -257,8 +251,7 @@ handle_user_input() {
                 }
             }
         }
-        //printf("You typed [%c] [%d]\n", c, c);
-    }
+    }  // (1)
 }
 
 inline static void
@@ -287,21 +280,20 @@ void init_game() {
             .color = CELL_P1
     };
 
-    cell_t cell;
+    // clear board and draw boarder walls
     for (int y = 0; y < numCellsY; y++) {
         for (int x = 0; x < numCellsX; x++) {
             if (x == 0 || x == numCellsX -1  || y == 0 || y == numCellsY - 1) {
-                cell = CELL_WALL;
-            } else if (x == p0->cellx && y == p0->celly) {
-                cell = CELL_P0;
-            } else if (x == p1->cellx && y == p1->celly) {
-                cell = CELL_P1;
+                put_cell(x, y, CELL_WALL);
             } else {
-                cell = CELL_EMPTY;
+                put_cell(x, y, CELL_EMPTY);
             }
-
-            put_cell(x, y, cell);
         }
+    }
+
+    // draw players at start position
+    for (int i = 0; i < NUMPLAYERS; i++) {
+        put_cell(players[i].cellx, players[i].celly, players[i].color);
     }
 }
 
