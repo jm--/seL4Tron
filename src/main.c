@@ -67,7 +67,11 @@ static ps_chardevice_t inputdev;
 // ======================================================================
 #define NUMPLAYERS 2
 
-typedef enum { West, North, East, South, LastDir} direction_t;
+typedef enum { West, North, East, South, DirLength} direction_t;
+
+direction_t dir_forward[] = { West, North, East, South};
+direction_t dir_back[] = { East, South, West, North};
+
 
 char *keymap[] = { "jilk", "awds"};
 
@@ -212,6 +216,7 @@ wait_for_timer()
     }
 }
 
+
 static void
 init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
     ps_chardevice_t *ret;
@@ -243,10 +248,11 @@ handle_user_input() {
             // ESC key was pressed - quit game
             return 1;
         }
-        for (int player = 0; player < NUMPLAYERS; player++) {
-            for (int direction = 0; direction < LastDir; direction++) {
-                if (c == keymap[player][direction]) {
-                    players[player].direction = direction;
+        for (int pl = 0; pl < NUMPLAYERS; pl++) {
+            for (int dir = 0; dir < DirLength; dir++) {
+                if (c == keymap[pl][dir]
+                && dir != dir_back[players[pl].direction]) {
+                    players[pl].direction = dir;
                     break;
                 }
             }
