@@ -65,13 +65,21 @@ static ps_chardevice_t inputdev;
 
 
 // ======================================================================
+#define NUMPLAYERS 2
 
-typedef enum { North, South, East, West} direction_t;
+typedef enum { West, North, East, South, LastDir} direction_t;
+
+char *keymap[] = { "jilk", "awds"};
+
+char deltax[] = {-1, 0 , 1, 0 };
+char deltay[] = {0, -1 , 0, 1 };
+
 
 typedef struct player {
     int cellx;
     int celly;
     direction_t direction;
+    color_t color;
 } player_t;
 
 
@@ -89,12 +97,13 @@ typedef struct player {
 /* number of cells per second */
 static int speed = 10;
 
-typedef enum { CELL_EMPTY, CELL_P1, CELL_P2, CELL_WALL} cell_t ;
+typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
 cell_t board[numCellsX][numCellsY];
 //uint8_t board[numCellsX][numCellsY];
 
-player_t p1;
-player_t p2;
+player_t players[NUMPLAYERS];
+player_t* p0 = players + 0;
+player_t* p1 = players + 1;
 
 // ======================================================================
 /*
@@ -210,35 +219,66 @@ init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
     assert(ret != NULL);
 }
 
-static void
+//static void
+//handle_user_input() {
+//    for (int i = 0;;i++) {
+//        int c = ps_cdev_getchar(&inputdev);
+//        if (c == EOF) {
+//            //read till we get EOF
+//            break;
+//        }
+//        printf("(%d) You typed [%c] [%d]\n", i, c, c);
+//    }
+//}
+
+static int
 handle_user_input() {
-    for (int i = 0;;i++) {
+    for (;;) {
         int c = ps_cdev_getchar(&inputdev);
         if (c == EOF) {
             //read till we get EOF
-            break;
+            return 0;
         }
-        printf("(%d) You typed [%c] [%d]\n", i, c, c);
+        if (c == 27) {
+            // ESC key was pressed - quit game
+            return 1;
+        }
+        for (int player = 0; player < NUMPLAYERS; player++) {
+            for (int direction = 0; direction < LastDir; direction++) {
+                if (c == keymap[player][direction]) {
+                    players[player].direction = direction;
+                    break;
+                }
+            }
+        }
+        //printf("You typed [%c] [%d]\n", c, c);
     }
 }
 
-
 inline static void
-draw_cell(const int cx, const int cy, int color) {
+put_cell(const int cx, const int cy, int color) {
+    board[cx][cy] = color;
     gfx_draw_rect(cx * cellWidth, cy * cellWidth, cellWidth, cellWidth, color);
+}
+
+inline static int
+get_cell(const int cx, const int cy) {
+    return board[cx][cy];
 }
 
 
 void init_game() {
-    p1 = (player_t) {
+    *p0 = (player_t) {
             .cellx = numCellsX * 3 / 4,
             .celly = numCellsY / 2,
-            .direction = East
+            .direction = East,
+            .color = CELL_P0
     };
-    p2 = (player_t) {
+    *p1 = (player_t) {
             .cellx = numCellsX * 1 / 4,
             .celly = numCellsY / 2,
-            .direction = West
+            .direction = West,
+            .color = CELL_P1
     };
 
     cell_t cell;
@@ -246,37 +286,48 @@ void init_game() {
         for (int x = 0; x < numCellsX; x++) {
             if (x == 0 || x == numCellsX -1  || y == 0 || y == numCellsY - 1) {
                 cell = CELL_WALL;
-            } else if (x == p1.cellx && y == p1.celly) {
+            } else if (x == p0->cellx && y == p0->celly) {
+                cell = CELL_P0;
+            } else if (x == p1->cellx && y == p1->celly) {
                 cell = CELL_P1;
-            } else if (x == p2.cellx && y == p2.celly) {
-                cell = CELL_P2;
             } else {
                 cell = CELL_EMPTY;
             }
-            board[x][y] = cell;
-            draw_cell(x, y, cell);
+
+            put_cell(x, y, cell);
         }
     }
-
-//    // top wall
-//    gfx_draw_rect(0, 0, xRes, cellWidth, CELL_WALL);
-//    // left wall
-//    gfx_draw_rect(0, 0, cellWidth, yRes, CELL_WALL);
-//    // right wall
-//    gfx_draw_rect(xRes - cellWidth , 0, cellWidth, yRes, CELL_WALL);
-//    // bottom wall
-//    gfx_draw_rect(0, 0, xRes, cellWidth, CELL_WALL);
 }
+
+static int
+update_world() {
+    for (int pl = 0; pl < NUMPLAYERS; pl++) {
+        player_t* p = players + pl;
+        p->cellx += deltax[p->direction];
+        p->celly += deltay[p->direction];
+        int cell = get_cell(p->cellx, p->celly);
+        if (cell != CELL_EMPTY) {
+            return 1;
+        }
+        put_cell(p->cellx, p->celly, p->color);
+    }
+    return 0;
+}
+
 
 void run_game_2player() {
     init_game();
 
     start_periodic_timer();
-    for (int y = 0; y < numCellsY; y++) {
-        for (int x = 0; x < numCellsX; x++) {
-            wait_for_timer();
-            handle_user_input();
-            draw_cell(x, y, 3);
+    for (;;) {
+        wait_for_timer();
+        int quit = handle_user_input();
+        if (quit) {
+            break;
+        }
+        int game_over = update_world();
+        if (game_over) {
+            break;
         }
     }
     stop_periodic_timer();
@@ -291,7 +342,7 @@ int main()
 
     printf("\n\n========= starting ========= \n\n");
 
-    printf("initialize serial keyboard\n");
+    printf("initialize keyboard\n");
     init_cdev(PC99_KEYBOARD_PS2, &inputdev);
 
     gfx_print_IA32BootInfo(bootinfo2);
