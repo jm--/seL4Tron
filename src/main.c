@@ -23,7 +23,7 @@
 #include "graphics.h"
 
 
-
+//extern char * p1_xpm[];
 
 /* memory management: Virtual Kernel Allocator (VKA) interface and VSpace */
 static vka_t vka;
@@ -78,6 +78,8 @@ char *keymap[] = { "jilk", "awds"};
 int deltax[] = {-1, 0 , 1, 0 };
 int deltay[] = {0, -1 , 0, 1 };
 
+/* possible things that can be placed onto the board */
+typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
 
 typedef struct player {
     /* player's current x cell position on the board */
@@ -86,8 +88,8 @@ typedef struct player {
     int celly;
     /* direction player is currently facing and moving next */
     direction_t direction;
-    /* color of the player's trail */
-    color_t color;
+    /* entity of player: CELL_P0 or CELL_P1 */
+    cell_t entity;
 } player_t;
 
 #define xRes 640
@@ -98,9 +100,6 @@ typedef struct player {
 
 /* speed in cells per second */
 static int speed = 10;
-
-/* possible things that can be placed on the board */
-typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
 
 /* the board is made of cells; cell coordinate (0,0) is in top left corner */
 cell_t board[numCellsX][numCellsY];
@@ -255,12 +254,22 @@ handle_user_input() {
 }
 
 inline static void
-put_cell(const int cx, const int cy, int color) {
-    board[cx][cy] = color;
+put_cell(const int cx, const int cy, cell_t element) {
+    //put element onto board
+    board[cx][cy] = element;
+
+    // Map "element" to a visual representation and put it on the screen.
+    // This currently means to fill the (cx, cy) cell with a different color,
+    // but this could be more elaborate.
+    uint32_t colors[] = {0
+            , gfx_map_color(0, 200, 0)
+            , gfx_map_color(0, 0, 200)
+            , gfx_map_color(200, 0, 0)};
+    uint32_t color = colors[element];
     gfx_draw_rect(cx * cellWidth, cy * cellWidth, cellWidth, cellWidth, color);
 }
 
-inline static int
+inline static cell_t
 get_cell(const int cx, const int cy) {
     return board[cx][cy];
 }
@@ -271,13 +280,13 @@ void init_game() {
             .cellx = numCellsX * 3 / 4,
             .celly = numCellsY / 2,
             .direction = East,
-            .color = CELL_P0
+            .entity = CELL_P0
     };
     *p1 = (player_t) {
             .cellx = numCellsX * 1 / 4,
             .celly = numCellsY / 2,
             .direction = West,
-            .color = CELL_P1
+            .entity = CELL_P1
     };
 
     // clear board and draw boarder walls
@@ -293,7 +302,7 @@ void init_game() {
 
     // draw players at start position
     for (int i = 0; i < NUMPLAYERS; i++) {
-        put_cell(players[i].cellx, players[i].celly, players[i].color);
+        put_cell(players[i].cellx, players[i].celly, players[i].entity);
     }
 }
 
@@ -307,7 +316,7 @@ update_world() {
         if (cell != CELL_EMPTY) {
             return 1;
         }
-        put_cell(p->cellx, p->celly, p->color);
+        put_cell(p->cellx, p->celly, p->entity);
     }
     return 0;
 }

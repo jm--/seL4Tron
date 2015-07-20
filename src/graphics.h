@@ -15,10 +15,6 @@
 #include <sel4platsupport/io.h>
 
 
-/* pointer to base address of (linear) frame buffer */
-typedef uint8_t* fb_t;
-
-typedef uint8_t color_t;
 
 void
 gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
@@ -31,7 +27,7 @@ gfx_poke_fb(const uint32_t offset, const uint8_t val);
 /*
  * Map complete linear frame buffer.
  */
-fb_t
+void
 gfx_map_video_ram(ps_io_mapper_t *io_mapper);
 
 
@@ -60,12 +56,26 @@ gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
 
 
 /*
+ * Map an RGB triple to a 32 bit pixel value. r, g, b are the red, green,
+ * and blue components of the pixel in the range 0-255.
+ */
+uint32_t
+gfx_map_color(uint8_t r, uint8_t g, uint8_t b);
+
+
+/*
  * Draw a rectangle and fill it.
  * @param x,y: top left corner
  * @param w,h: widht and height
  * @param c:  fill color
  */
 void
-gfx_draw_rect(const int x, const int y, const int w , const int h, color_t c);
+gfx_draw_rect(const int x, const int y, const int w , const int h, uint32_t c);
 
+
+/*
+ * Fill entire screen with color c.
+ */
+void
+gfx_fill_screen(uint32_t c);
 #endif /* GRAPHICS_H_ */

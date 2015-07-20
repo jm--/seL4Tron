@@ -9,18 +9,23 @@
 
 
 /*
- * Code here is not optimized for performance and only
- * handles 8 bits per pixel memory layouts.
+ * Code here is not optimized for performance and assumes
+ * a 32 bits per pixel memory layout (direct color RGB memory model).
  */
 
 #include "graphics.h"
 
+/* pointer to base address of (linear) frame buffer */
+typedef uint32_t* fb_t;
+
 static seL4_VBEModeInfoBlock mib;
 static fb_t fb = NULL;
+
 
 void
 gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
     mib = bootinfo->vbeModeInfoBlock;
+    assert(mib.bitsPerPixel == 32);
 }
 
 void
@@ -28,7 +33,7 @@ gfx_poke_fb(const uint32_t offset, const uint8_t val) {
     fb[offset] = val;
 }
 
-fb_t
+void
 gfx_map_video_ram(ps_io_mapper_t *io_mapper) {
     size_t size = mib.yRes * mib.linBytesPerScanLine;
     fb = (fb_t) ps_io_map(io_mapper,
@@ -37,18 +42,17 @@ gfx_map_video_ram(ps_io_mapper_t *io_mapper) {
             0,
             PS_MEM_NORMAL);
     assert(fb != NULL);
-    return fb;
 }
 
 
 void
 gfx_display_testpic() {
     assert(fb != NULL);
-    size_t size = mib.yRes * mib.linBytesPerScanLine;
-    for (int i = 0; i < size; i++) {
+    const size_t size = mib.yRes * mib.linBytesPerScanLine;
+    for (int i = 0; i < size / 4; i++) {
         /* set pixel;
          * depending on color depth, one pixel is 1, 2, or 3 bytes */
-        fb[i] = i % 256; //generates some pattern
+        fb[i] = i; //generates some pattern
     }
 }
 
@@ -131,18 +135,30 @@ gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
     printf("=== VBE end ===========\n");
 }
 
+uint32_t
+gfx_map_color(uint8_t r, uint8_t g, uint8_t b) {
+    return (r << mib.linRedOff)
+         | (g << mib.linGreenOff)
+         | (b << mib.linBlueOff);
+}
 
 inline static void
-gfx_draw_point(const int x, const int y, const color_t c) {
-    fb[y *  mib.linBytesPerScanLine + x] = c;
+gfx_draw_point(const int x, const int y, const uint32_t c) {
+    fb[y * mib.xRes + x] = c;
 }
 
 
 void
-gfx_draw_rect(const int x, const int y, const int w , const int h, color_t c) {
+gfx_draw_rect(const int x, const int y, const int w , const int h, uint32_t c) {
     for (int i = 0; i < w; i++) {
         for (int j = 0; j < h; j++) {
             gfx_draw_point(x + i, y + j, c);
         }
     }
+}
+
+
+void
+gfx_fill_screen(uint32_t c) {
+    gfx_draw_rect(0, 0, mib.xRes, mib.yRes, c);
 }
