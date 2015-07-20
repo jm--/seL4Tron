@@ -9,7 +9,7 @@
 apps-$(CONFIG_APP_TRON) += tron
 
 # dependencies
-tron-y = common libsel4 libmuslc libsel4muslcsys libsel4vka \
+tron-y = common libsel4 libcpio libmuslc libsel4muslcsys libsel4vka \
          libsel4allocman libsel4simple libsel4simple-stable \
          libsel4platsupport libsel4vspace libsel4utils libutils
 

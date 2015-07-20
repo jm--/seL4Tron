@@ -78,4 +78,13 @@ gfx_draw_rect(const int x, const int y, const int w , const int h, uint32_t c);
  */
 void
 gfx_fill_screen(uint32_t c);
+
+
+/*
+ * Load PPM file "filename" from cpio archive and display it
+ * at (startx, starty) coordinate.
+ */
+void
+gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename);
+
 #endif /* GRAPHICS_H_ */

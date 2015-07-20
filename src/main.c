@@ -20,6 +20,7 @@
 #include <sel4platsupport/arch/io.h>
 #include <sel4utils/vspace.h>
 #include <simple-stable/simple-stable.h>
+
 #include "graphics.h"
 
 
@@ -363,7 +364,16 @@ int main()
     printf("done\n");
 
     for (;;) {
-        printf("menu/splash screen");
+        gfx_diplay_ppm(10, 10, "sel4.ppm");
+        for (;;) { // (1)
+            int c = ps_cdev_getchar(&inputdev);
+            if (c == 27) {
+                return 0;
+            }
+            if (c != EOF) {
+                break;
+            }
+        }
         run_game_2player();
     }
     return 0;

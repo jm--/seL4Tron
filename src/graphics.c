@@ -13,6 +13,8 @@
  * a 32 bits per pixel memory layout (direct color RGB memory model).
  */
 
+#include <string.h>
+#include <cpio/cpio.h>
 #include "graphics.h"
 
 /* pointer to base address of (linear) frame buffer */
@@ -20,6 +22,9 @@ typedef uint32_t* fb_t;
 
 static seL4_VBEModeInfoBlock mib;
 static fb_t fb = NULL;
+
+/* linked in via archive.o; see Makefile */
+extern char _cpio_archive[];
 
 
 void
@@ -161,4 +166,39 @@ gfx_draw_rect(const int x, const int y, const int w , const int h, uint32_t c) {
 void
 gfx_fill_screen(uint32_t c) {
     gfx_draw_rect(0, 0, mib.xRes, mib.yRes, c);
+}
+
+
+/*
+ * see https://en.wikipedia.org/wiki/Netpbm_format for PPM format
+ */
+void
+gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename) {
+    assert(filename);
+    unsigned long filesize;
+    void * img = cpio_get_file(_cpio_archive, filename, &filesize);
+    assert(img);
+
+    int imgx = 0;  // image width (in pixel)
+    int imgy = 0;  // image height
+    //we cannot handle any comments in the header
+    int n = sscanf(img, "P6\n%d %d\n255\n", &imgx, &imgy);
+    assert (n == 2 && imgx > 0 && imgy > 0);
+
+    // find first pixel; header and data are separated by "\n255\n"
+    uint8_t* src = (uint8_t*) strstr(img, "\n255\n");
+    assert(src);
+    // skip over separator
+    src += 5;
+
+    //copy pixels to frame buffer
+    for (int y = 0; y < imgy; y++) {
+        for (int x = 0; x < imgx; x++) {
+            uint8_t r = *src++;
+            uint8_t g = *src++;
+            uint8_t b = *src++;
+            uint32_t color = gfx_map_color(r, g, b);
+            gfx_draw_point(startx + x, starty + y, color);
+        }
+    }
 }
