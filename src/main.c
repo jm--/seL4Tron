@@ -226,7 +226,7 @@ init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
 
 
 static int
-handle_user_input() {
+handle_user_input(int numHumanPlayers) {
     for (;;) { // (1)
         int c = ps_cdev_getchar(&inputdev);
         if (c == EOF) {
@@ -239,7 +239,7 @@ handle_user_input() {
         }
 
         // check for all players
-        for (int pl = 0; pl < NUMPLAYERS; pl++) {
+        for (int pl = 0; pl < numHumanPlayers; pl++) {
             // check all directions
             for (int dir = 0; dir < DirLength; dir++) {
                 // update player's current direction according to
@@ -308,20 +308,57 @@ void init_game() {
 }
 
 static int
-update_world() {
-    for (int pl = 0; pl < NUMPLAYERS; pl++) {
-        player_t* p = players + pl;
-        p->cellx += deltax[p->direction];
-        p->celly += deltay[p->direction];
-        int cell = get_cell(p->cellx, p->celly);
-        if (cell != CELL_EMPTY) {
-            return 1;
-        }
+update_world(player_t* p) {
+    p->cellx += deltax[p->direction];
+    p->celly += deltay[p->direction];
+    int cell = get_cell(p->cellx, p->celly);
+    if (cell == CELL_EMPTY) {
         put_cell(p->cellx, p->celly, p->entity);
+        return 0;
     }
-    return 0;
+    return 1;
 }
 
+
+void get_computer_move(player_t* p) {
+    // get current time in ns
+    uint64_t startTime = timer_get_time(tsc_timer->timer);
+    // time when computer has to stop "thinking"; use the same
+    // formula as for IRQ timing: (IRQ timer period) * (number of loops)
+    uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
+
+    while (timer_get_time(tsc_timer->timer) < endTime) {
+        // TODO: find move
+    }
+    p->direction = rand() % DirLength;
+}
+
+
+void run_game_1player(direction_t startDir) {
+    init_game();
+    p0->direction = startDir;
+
+    for (;;) {
+        // human player moves
+        int crash = update_world(p0);
+        if (crash) {
+            printf("computer wins\n");
+            break;
+        }
+        // computer player moves
+        get_computer_move(p1);
+        crash = update_world(p1);
+        if (crash) {
+            printf("player wins\n");
+            break;
+        }
+        // get next human player move
+        int quit = handle_user_input(1);
+        if (quit) {
+            break;
+        }
+    }
+}
 
 void run_game_2player() {
     init_game();
@@ -329,14 +366,26 @@ void run_game_2player() {
     start_periodic_timer();
     for (;;) {
         wait_for_timer();
-        int quit = handle_user_input();
+        int quit = handle_user_input(2);
         if (quit) {
             break;
         }
-        int game_over = update_world();
-        if (game_over) {
+        int crash0 = update_world(p0);
+        int crash1 = update_world(p1);
+        if ((crash0 && crash1)
+        || (p0->cellx == p1->cellx && p0->celly == p1->celly)) {
+            printf("both crash\n");
             break;
         }
+        if (crash0) {
+            printf("player 2 wins\n");
+            break;
+        }
+        if (crash1) {
+            printf("player 1 wins\n");
+            break;
+        }
+
     }
     stop_periodic_timer();
 }
@@ -367,14 +416,26 @@ int main()
         gfx_diplay_ppm(10, 10, "sel4.ppm");
         for (;;) { // (1)
             int c = ps_cdev_getchar(&inputdev);
-            if (c == 27) {
+            switch(c) {
+            case 27:
                 return 0;
-            }
-            if (c != EOF) {
                 break;
+            case ' ':
+            case '2':
+                run_game_2player();
+                break;
+            case '1':
+                run_game_1player(North);
+                break;
+            default:
+                // game starts with "direction key" press
+                for (int i = 0; i < DirLength; i++) {
+                    if (keymap[0][i] == c) {
+                        run_game_1player(dir_forward[i]);
+                    }
+                }
             }
-        }
-        run_game_2player();
+        } // (1)
     }
     return 0;
 }
