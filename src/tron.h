@@ -19,16 +19,19 @@
 #define numCellsX (xRes / cellWidth)
 #define numCellsY (yRes / cellWidth)
 
+typedef struct coord {
+    uint32_t x;
+    uint32_t y;
+} coord_t;
+
 typedef enum { West, North, East, South, DirLength} direction_t;
 
 /* possible things that can be placed onto the board */
 typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
 
 typedef struct player {
-    /* player's current x cell position on the board */
-    int cellx;
-    /* player's current y cell position on the board */
-    int celly;
+    /* player's current x and y cell position on the board */
+    coord_t pos;
     /* direction player is currently facing and moving next */
     direction_t direction;
     /* entity of player: CELL_P0 or CELL_P1 */

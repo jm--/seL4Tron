@@ -235,9 +235,9 @@ handle_user_input(int numHumanPlayers) {
 }
 
 inline static void
-put_cell(const int cx, const int cy, cell_t element) {
+put_cell(const coord_t pos, cell_t element) {
     //put element onto board
-    board[cx][cy] = element;
+    board[pos.x][pos.y] = element;
 
     // Map "element" to a visual representation and put it on the screen.
     // This currently means to fill the (cx, cy) cell with a different color,
@@ -247,25 +247,25 @@ put_cell(const int cx, const int cy, cell_t element) {
             , gfx_map_color(0, 0, 200)
             , gfx_map_color(200, 0, 0)};
     uint32_t color = colors[element];
-    gfx_draw_rect(cx * cellWidth, cy * cellWidth, cellWidth, cellWidth, color);
+    gfx_draw_rect(pos.x * cellWidth, pos.y * cellWidth, cellWidth, cellWidth, color);
 }
 
 inline static cell_t
-get_cell(const int cx, const int cy) {
-    return board[cx][cy];
+get_cell(const coord_t pos) {
+    return board[pos.x][pos.y];
 }
 
 
 void init_game() {
     *p0 = (player_t) {
-            .cellx = numCellsX * 3 / 4,
-            .celly = numCellsY / 2,
+            .pos.x = numCellsX * 3 / 4,
+            .pos.y = numCellsY / 2,
             .direction = East,
             .entity = CELL_P0
     };
     *p1 = (player_t) {
-            .cellx = numCellsX * 1 / 4,
-            .celly = numCellsY / 2,
+            .pos.x = numCellsX * 1 / 4,
+            .pos.y = numCellsY / 2,
             .direction = West,
             .entity = CELL_P1
     };
@@ -274,26 +274,27 @@ void init_game() {
     for (int y = 0; y < numCellsY; y++) {
         for (int x = 0; x < numCellsX; x++) {
             if (x == 0 || x == numCellsX -1  || y == 0 || y == numCellsY - 1) {
-                put_cell(x, y, CELL_WALL);
+                //coord_t p = {x,y};
+                put_cell((coord_t){x,y}, CELL_WALL);
             } else {
-                put_cell(x, y, CELL_EMPTY);
+                put_cell((coord_t){x,y}, CELL_EMPTY);
             }
         }
     }
 
     // draw players at start position
     for (int i = 0; i < NUMPLAYERS; i++) {
-        put_cell(players[i].cellx, players[i].celly, players[i].entity);
+        put_cell(players[i].pos, players[i].entity);
     }
 }
 
 static int
 update_world(player_t* p) {
-    p->cellx += deltax[p->direction];
-    p->celly += deltay[p->direction];
-    int cell = get_cell(p->cellx, p->celly);
+    p->pos.x += deltax[p->direction];
+    p->pos.y += deltay[p->direction];
+    cell_t cell = get_cell(p->pos);
     if (cell == CELL_EMPTY) {
-        put_cell(p->cellx, p->celly, p->entity);
+        put_cell(p->pos, p->entity);
         return 0;
     }
     return 1;
@@ -349,7 +350,7 @@ void run_game_2player() {
         int crash0 = update_world(p0);
         int crash1 = update_world(p1);
         if ((crash0 && crash1)
-        || (p0->cellx == p1->cellx && p0->celly == p1->celly)) {
+        || (p0->pos.x == p1->pos.x && p0->pos.y == p1->pos.y)) {
             printf("both crash\n");
             break;
         }
