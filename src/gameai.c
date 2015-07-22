@@ -96,7 +96,6 @@ get_direction(direction_t dir, action_t action) {
     return ((dir + DirLength) + delta[action]) % DirLength;
 }
 
-
 UNUSED static void
 test_module() {
     assert(get_direction(West, MoveForward) == West);
@@ -131,7 +130,23 @@ get_action(int* matches, int numMatches) {
     if (numMatches == 0) {
         return MoveForward;
     }
-    return rules[matches[0]].action;
+
+    // roulette wheel selection
+    int totalWeight = 0;
+    for (int i = 0; i < numMatches; i++) {
+        totalWeight += rules[matches[i]].weight;
+    }
+    int selected = random() % totalWeight;
+
+    int i;
+    for(i = 0; i < numMatches; i++) {
+        selected -= rules[matches[i]].weight;
+        if(selected <= 0) {
+            break;
+        }
+    }
+
+    return rules[matches[i]].action;
 }
 
 
@@ -140,6 +155,7 @@ get_computer_move(uint64_t endTime) {
 
     if (numRules == 0) {
         init_rules();
+        srandom(endTime);
     }
 
     static char msg[COND_LEN];
