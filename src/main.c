@@ -319,7 +319,10 @@ void run_game_1player(direction_t startDir) {
         // formula as for IRQ timing: (IRQ timer period) * (number of loops)
         uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
         //get_computer_move(numCellsX, numCellsX, board, endTime, p1, p0);
-        get_computer_move(endTime);
+        p1->direction = get_computer_move(endTime);
+        while (get_current_time() < endTime) {
+            // busy waiting
+        }
         crash = update_world(p1);
         if (crash) {
             printf("player wins\n");

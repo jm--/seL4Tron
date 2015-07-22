@@ -37,7 +37,7 @@ typedef struct player {
 
 
 uint64_t get_current_time();
-void get_computer_move(uint64_t endTime);
+direction_t get_computer_move(uint64_t endTime);
 
 
 #endif /* TRON_H_ */
