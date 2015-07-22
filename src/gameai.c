@@ -8,15 +8,18 @@
  */
 
 #include "tron.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <utils/attribute.h>
 
-//extern direction_t dir_forward[];
-//extern direction_t dir_back[];
-//extern cell_t board[numCellsX][numCellsY];
-//extern int deltax[];
-//extern int deltay[];
+#define CI_FORWARD_ISEMPTY    0
+#define CI_LEFT_ISEMPTY       1
+#define CI_RIGHT_ISEMPTY      2
+#define CI_LEFT_ISOK          3
+#define CI_RIGHT_ISOK         4
+#define CI_LAST               5
+
 extern player_t players[NUMPLAYERS];
 //static player_t* other = players + 0;
 static player_t* me = players + 1;
@@ -44,22 +47,47 @@ static int numRules = 0;
 static void
 add_rule(char* cond, action_t action, int weight) {
     assert(numRules < RULES_LEN);
-    rule_t* cur = &rules[numRules++];
-    strcpy(cur->cond, cond);
-    cur->action = action;
-    cur->weight = weight;
+    char* dst = rules[numRules].cond;
+    int i;
+    for (i = 0; cond[i]; i++) {
+        assert(i < COND_LEN);
+        dst[i] = cond[i];
+    }
+    for(; i < COND_LEN - 1; i++) {
+        dst[i] = '#';
+    }
+    dst[i] = '\0';
+
+    //strcpy(cur->cond, cond);
+    rules[numRules].action = action;
+    rules[numRules].weight = weight;
+    numRules++;
 }
 
 
 static void
 init_rules() {
+    // the most desperate moves: there is only one option left,
+    // so we better take it
     add_rule("100", MoveForward, 1000);
     add_rule("010", MoveLeft, 1000);
     add_rule("001", MoveRight, 1000);
 
-    add_rule("1##", MoveForward, 10);
-    add_rule("#1#", MoveLeft, 3);
-    add_rule("##1", MoveRight, 3);
+    // it's game over; move forward to end it
+    add_rule("000", MoveForward, 1);
+
+    //moving forward (when possible) is not bad because
+    //zigzag moves bear the risk of locking ourselves in
+    add_rule("1##", MoveForward, 20);
+
+    //occasionally, we should make a turn (if cell in move direction is empty)
+    add_rule("#1#", MoveLeft, 2);
+    add_rule("##1", MoveRight, 2);
+
+    // forward is blocked; left and right is empty: we have to turn,
+    // turn when directions looks promising
+    add_rule("01#1#", MoveLeft, 15);
+    add_rule("0#1#1", MoveRight, 15);
 }
 
 static coord_t
@@ -74,27 +102,95 @@ get_newpos(coord_t pos, direction_t dir, action_t action) {
     return (coord_t){pos.x + d.x, pos.y + d.y};
 }
 
-static void
-read_detectors(char *msg) {
-    coord_t pos;
-    pos = get_newpos(me->pos, me->direction, MoveForward);
-    msg[0] = get_cell(pos) == CELL_EMPTY ? '1':'0';
-
-    pos = get_newpos(me->pos, me->direction, MoveLeft);
-    msg[1] = get_cell(pos) == CELL_EMPTY ? '1':'0';
-
-    pos = get_newpos(me->pos, me->direction, MoveRight);
-    msg[2] = get_cell(pos) == CELL_EMPTY ? '1':'0';
-
-    msg[3] = 0;
-}
-
-
 static direction_t
 get_direction(direction_t dir, action_t action) {
     int delta[] = {0, -1, 1};
     return ((dir + DirLength) + delta[action]) % DirLength;
 }
+
+
+//       s
+//  ...........
+//  ...........
+//  ........... t
+//  ...........
+//  .....x....C
+static int
+count_cells(int slen, int tlen, coord_t pos, direction_t dir, cell_t ctyp) {
+    int count = 0;
+    // move position "pos" to corner position "C"  of the s/t rectangle
+    //pos = get_newpos(pos, dir, MoveForward);
+    direction_t  dr = get_direction(dir, MoveRight);
+    direction_t  dl = get_direction(dir, MoveLeft);
+    for (int s = 0; s < (slen-1) / 2; s++) {
+        pos = get_newpos(pos, dr, MoveForward);
+    }
+
+    for (int s = 0; s < slen; s++) {
+        coord_t p = pos;
+        for (int t = 0; t < tlen; t++) {
+            if (get_cell(p) == ctyp) {
+                count++;
+            }
+            //printf("  > s=%d t=%d x=%d y=%d count=%d\n", s,t,p.x, p.y, count);
+            //waitf();
+            p = get_newpos(p, dir, MoveForward);
+        }
+        pos = get_newpos(pos, dl, MoveForward);
+    }
+
+    return count;
+}
+
+static void
+read_detectors(char *msg) {
+    coord_t pos;
+    pos = get_newpos(me->pos, me->direction, MoveForward);
+    msg[CI_FORWARD_ISEMPTY] = get_cell(pos) == CELL_EMPTY ? '1':'0';
+
+    pos = get_newpos(me->pos, me->direction, MoveLeft);
+    msg[CI_LEFT_ISEMPTY] = get_cell(pos) == CELL_EMPTY ? '1':'0';
+
+    pos = get_newpos(me->pos, me->direction, MoveRight);
+    msg[CI_RIGHT_ISEMPTY] = get_cell(pos) == CELL_EMPTY ? '1':'0';
+
+    //--------- heuristic helping to choose between left/right
+    // count empty cells in rectangle of width s and height t, left
+    // and right of current position and direction
+    // (this seems to work as badly as I thought it would:)
+    const int s = 7; //odd number
+    const int t = 4;
+    direction_t dirLeft = get_direction(me->direction, MoveLeft);
+    int numEmptyLeft = count_cells(s, t, me->pos, dirLeft, CELL_EMPTY);
+
+    direction_t dirRight = get_direction(me->direction, MoveRight);
+    int numEmptyRight = count_cells(s, t, me->pos, dirRight, CELL_EMPTY);
+
+    const int diff = 3;
+    if (numEmptyLeft - numEmptyRight > diff) {
+        //left are more empty cells than right
+        msg[CI_LEFT_ISOK] = '1';
+        msg[CI_RIGHT_ISOK] = '0';
+    } else if (numEmptyLeft - numEmptyRight < -diff) {
+        //right are more empty cells than left
+        msg[CI_LEFT_ISOK] = '0';
+        msg[CI_RIGHT_ISOK] = '1';
+    } else {
+        //there is roughly an equal number of empty cells on both sides
+        msg[CI_LEFT_ISOK] = '1';
+        msg[CI_RIGHT_ISOK] = '1';
+    }
+    //-----------
+    msg[CI_LAST] = 0;
+
+    printf ("current pos: x=%d y=%d current dir=%d\n", me->pos.x, me->pos.y, me->direction);
+    printf ("msg: %s\n", msg);
+    printf ("numEmptyLeft : %d\n", numEmptyLeft);
+    printf ("numEmptyRight: %d\n\n", numEmptyRight);
+}
+
+
+
 
 UNUSED static void
 test_module() {
@@ -124,13 +220,24 @@ match_rules(char* msg, int* matches, int* numMatches) {
     }
 }
 
+static void
+debug_print_rules(int* matches, int numMatches) {
+    for (int i = 0; i < numRules; i++) {
+        printf("num=%d cond=%s weight=%d action=%d\n", i, rules[i].cond, rules[i].weight, rules[i].action);
+    }
+    printf("matches: ");
+    for (int i = 0; i < numMatches; i++) {
+        printf("%d ", matches[i]);
+    }
+    printf("\n");
+}
+
 static action_t
 get_action(int* matches, int numMatches) {
     assert(numMatches < RULES_LEN);
-    if (numMatches == 0) {
-        return MoveForward;
-    }
+    assert(numMatches > 0);
 
+    debug_print_rules(matches, numMatches);
     // roulette wheel selection
     int totalWeight = 0;
     for (int i = 0; i < numMatches; i++) {
@@ -145,6 +252,8 @@ get_action(int* matches, int numMatches) {
             break;
         }
     }
+
+    printf("picking matched rule i=%d, which is rule i=%d\n", i,matches[i]);
 
     return rules[matches[i]].action;
 }

@@ -205,10 +205,20 @@ init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
 }
 
 
+//void waitf() {
+//    for (;;) {
+//        int c = ps_cdev_getchar(&inputdev);
+//        if (c == 'f') {
+//            return;
+//        }
+//    }
+//}
+
 static int
 handle_user_input(int numHumanPlayers) {
     for (;;) { // (1)
         int c = ps_cdev_getchar(&inputdev);
+        //if (c == 'f') {
         if (c == EOF) {
             //read till we get EOF
             return 0;
@@ -252,6 +262,9 @@ put_cell(const coord_t pos, cell_t element) {
 
 cell_t
 get_cell(const coord_t pos) {
+    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
+        return CELL_WALL;
+    }
     return board[pos.x][pos.y];
 }
 
@@ -321,6 +334,7 @@ void run_game_1player(direction_t startDir) {
         uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
         //get_computer_move(numCellsX, numCellsX, board, endTime, p1, p0);
         p1->direction = get_computer_move(endTime);
+        printf("computer moves %d\n---------\n", p1->direction);
         while (get_current_time() < endTime) {
             // busy waiting
         }
