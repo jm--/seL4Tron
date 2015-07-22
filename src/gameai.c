@@ -86,8 +86,8 @@ init_rules() {
 
     // forward is blocked; left and right is empty: we have to turn,
     // turn when directions looks promising
-    add_rule("01#1#", MoveLeft, 15);
-    add_rule("0#1#1", MoveRight, 15);
+    add_rule("01#1#", MoveLeft, 20);
+    add_rule("0#1#1", MoveRight, 20);
 }
 
 static coord_t
@@ -109,38 +109,32 @@ get_direction(direction_t dir, action_t action) {
 }
 
 
-//       s
-//  ...........
-//  ...........
-//  ........... t
-//  ...........
-//  .....x....C
 static int
-count_cells(int slen, int tlen, coord_t pos, direction_t dir, cell_t ctyp) {
+count_emptyCells(coord_t pos, direction_t dir, action_t action) {
+    const int slen = 5;  //number of cells sideways
+    const int tlen = 4;  //number of cells back
     int count = 0;
-    // move position "pos" to corner position "C"  of the s/t rectangle
-    //pos = get_newpos(pos, dir, MoveForward);
-    direction_t  dr = get_direction(dir, MoveRight);
-    direction_t  dl = get_direction(dir, MoveLeft);
-    for (int s = 0; s < (slen-1) / 2; s++) {
-        pos = get_newpos(pos, dr, MoveForward);
-    }
+
+    assert(action == MoveLeft || action == MoveRight);
+    direction_t dsideways = get_direction(dir, action);
+    direction_t dback = get_direction(dsideways, action);
 
     for (int s = 0; s < slen; s++) {
         coord_t p = pos;
         for (int t = 0; t < tlen; t++) {
-            if (get_cell(p) == ctyp) {
+            if (get_cell(p) == CELL_EMPTY) {
                 count++;
             }
             //printf("  > s=%d t=%d x=%d y=%d count=%d\n", s,t,p.x, p.y, count);
             //waitf();
-            p = get_newpos(p, dir, MoveForward);
+            p = get_newpos(p, dback, MoveForward);
         }
-        pos = get_newpos(pos, dl, MoveForward);
+        pos = get_newpos(pos, dsideways, MoveForward);
     }
 
     return count;
 }
+
 
 static void
 read_detectors(char *msg) {
@@ -158,13 +152,9 @@ read_detectors(char *msg) {
     // count empty cells in rectangle of width s and height t, left
     // and right of current position and direction
     // (this seems to work as badly as I thought it would:)
-    const int s = 7; //odd number
-    const int t = 4;
-    direction_t dirLeft = get_direction(me->direction, MoveLeft);
-    int numEmptyLeft = count_cells(s, t, me->pos, dirLeft, CELL_EMPTY);
 
-    direction_t dirRight = get_direction(me->direction, MoveRight);
-    int numEmptyRight = count_cells(s, t, me->pos, dirRight, CELL_EMPTY);
+    int numEmptyLeft  = count_emptyCells(me->pos, me->direction, MoveLeft);
+    int numEmptyRight = count_emptyCells(me->pos, me->direction, MoveRight);
 
     const int diff = 3;
     if (numEmptyLeft - numEmptyRight > diff) {
