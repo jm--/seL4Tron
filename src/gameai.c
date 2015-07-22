@@ -10,10 +10,11 @@
 #include "tron.h"
 #include <stdlib.h>
 #include <string.h>
+#include <utils/attribute.h>
 
 //extern direction_t dir_forward[];
 //extern direction_t dir_back[];
-extern cell_t board[numCellsX][numCellsY];
+//extern cell_t board[numCellsX][numCellsY];
 //extern int deltax[];
 //extern int deltay[];
 extern player_t players[NUMPLAYERS];
@@ -24,7 +25,7 @@ static player_t* me = players + 1;
 
 #define COND_LEN 10
 
-typedef enum { MoveForward = 0, MoveLeft = -1, MoveRight = 1, ActionLen = 3} action_t;
+typedef enum { MoveForward = 0, MoveLeft = 1, MoveRight = 2, ActionLen = 3} action_t;
 
 typedef struct {
     char cond[COND_LEN];
@@ -61,32 +62,45 @@ init_rules() {
     add_rule("##1", MoveRight, 3);
 }
 
+static coord_t
+get_newpos(coord_t pos, direction_t dir, action_t action) {
+    static coord_t delta[DirLength][ActionLen] = {
+            {{-1,0}, {0,1},  {0,-1}},
+            {{0,-1}, {-1,0}, {1,0}},
+            {{1,0},  {0,-1}, {0,1}},
+            {{0,1},  {1,0},  {-1,0}}
+    };
+    coord_t d = delta[dir][action];
+    return (coord_t){pos.x + d.x, pos.y + d.y};
+}
+
 static void
 read_detectors(char *msg) {
-//    int deltax[DirLength][ActionLen] = {
-//            {-1, 0, 0},
-//            {0, -1, 1},
-//            {1, 0 , 0},
-//            {0, 1, -1}
-//    };
+    coord_t pos;
+    pos = get_newpos(me->pos, me->direction, MoveForward);
+    msg[0] = get_cell(pos) == CELL_EMPTY ? '1':'0';
 
-    msg[0] = '1';
-    msg[1] = '1';
-    msg[2] = '1';
+    pos = get_newpos(me->pos, me->direction, MoveLeft);
+    msg[1] = get_cell(pos) == CELL_EMPTY ? '1':'0';
+
+    pos = get_newpos(me->pos, me->direction, MoveRight);
+    msg[2] = get_cell(pos) == CELL_EMPTY ? '1':'0';
+
     msg[3] = 0;
-
-
 }
+
+
 static direction_t
 get_direction(direction_t dir, action_t action) {
-    direction_t newdir = dir + action;
-    if (newdir < 0 || newdir == DirLength) {
-        return 0;
-    } else {
-        return newdir;
-    }
+    int delta[] = {0, -1, 1};
+    return ((dir + DirLength) + delta[action]) % DirLength;
 }
 
+
+UNUSED static void
+test_module() {
+    assert(get_direction(West, MoveForward) == West);
+}
 
 static void
 match_rules(char* msg, int* matches, int* numMatches) {
@@ -113,7 +127,11 @@ match_rules(char* msg, int* matches, int* numMatches) {
 
 static action_t
 get_action(int* matches, int numMatches) {
-    return MoveForward;
+    assert(numMatches < RULES_LEN);
+    if (numMatches == 0) {
+        return MoveForward;
+    }
+    return rules[matches[0]].action;
 }
 
 

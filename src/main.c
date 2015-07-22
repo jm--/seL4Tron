@@ -250,7 +250,7 @@ put_cell(const coord_t pos, cell_t element) {
     gfx_draw_rect(pos.x * cellWidth, pos.y * cellWidth, cellWidth, cellWidth, color);
 }
 
-inline static cell_t
+cell_t
 get_cell(const coord_t pos) {
     return board[pos.x][pos.y];
 }

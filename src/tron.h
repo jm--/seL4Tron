@@ -20,8 +20,8 @@
 #define numCellsY (yRes / cellWidth)
 
 typedef struct coord {
-    uint32_t x;
-    uint32_t y;
+    int x;
+    int y;
 } coord_t;
 
 typedef enum { West, North, East, South, DirLength} direction_t;
@@ -41,6 +41,6 @@ typedef struct player {
 
 uint64_t get_current_time();
 direction_t get_computer_move(uint64_t endTime);
-
+cell_t get_cell(const coord_t pos);
 
 #endif /* TRON_H_ */
