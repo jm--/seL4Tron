@@ -22,9 +22,8 @@
 #include <simple-stable/simple-stable.h>
 
 #include "graphics.h"
+#include "tron.h"
 
-
-//extern char * p1_xpm[];
 
 /* memory management: Virtual Kernel Allocator (VKA) interface and VSpace */
 static vka_t vka;
@@ -66,38 +65,14 @@ static ps_chardevice_t inputdev;
 
 
 // ======================================================================
-#define NUMPLAYERS 2
-
-typedef enum { West, North, East, South, DirLength} direction_t;
 
 direction_t dir_forward[] = { West, North, East, South};
 direction_t dir_back[] = { East, South, West, North};
 
-
-char *keymap[] = { "jilk", "awds"};
-
 int deltax[] = {-1, 0 , 1, 0 };
 int deltay[] = {0, -1 , 0, 1 };
 
-/* possible things that can be placed onto the board */
-typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
-
-typedef struct player {
-    /* player's current x cell position on the board */
-    int cellx;
-    /* player's current y cell position on the board */
-    int celly;
-    /* direction player is currently facing and moving next */
-    direction_t direction;
-    /* entity of player: CELL_P0 or CELL_P1 */
-    cell_t entity;
-} player_t;
-
-#define xRes 640
-#define yRes 480
-#define cellWidth 10
-#define numCellsX (xRes / cellWidth)
-#define numCellsY (yRes / cellWidth)
+static char *keymap[] = { "jilk", "awds"};
 
 /* speed in cells per second */
 static int speed = 10;
@@ -106,8 +81,8 @@ static int speed = 10;
 cell_t board[numCellsX][numCellsY];
 
 player_t players[NUMPLAYERS];
-player_t* p0 = players + 0;
-player_t* p1 = players + 1;
+static player_t* p0 = players + 0;
+static player_t* p1 = players + 1;
 
 // ======================================================================
 /*
@@ -201,6 +176,11 @@ stop_periodic_timer() {
     assert(err == 0);
 
     sel4_timer_handle_single_irq(timer);
+}
+
+uint64_t
+get_current_time() {
+    return timer_get_time(tsc_timer->timer);
 }
 
 
@@ -320,20 +300,6 @@ update_world(player_t* p) {
 }
 
 
-void get_computer_move(player_t* p) {
-    // get current time in ns
-    uint64_t startTime = timer_get_time(tsc_timer->timer);
-    // time when computer has to stop "thinking"; use the same
-    // formula as for IRQ timing: (IRQ timer period) * (number of loops)
-    uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
-
-    while (timer_get_time(tsc_timer->timer) < endTime) {
-        // TODO: find move
-    }
-    p->direction = rand() % DirLength;
-}
-
-
 void run_game_1player(direction_t startDir) {
     init_game();
     p0->direction = startDir;
@@ -346,7 +312,14 @@ void run_game_1player(direction_t startDir) {
             break;
         }
         // computer player moves
-        get_computer_move(p1);
+
+        // get current time in ns
+        uint64_t startTime = get_current_time();
+        // time when computer has to stop "thinking"; use the same
+        // formula as for IRQ timing: (IRQ timer period) * (number of loops)
+        uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
+        //get_computer_move(numCellsX, numCellsX, board, endTime, p1, p0);
+        get_computer_move(endTime);
         crash = update_world(p1);
         if (crash) {
             printf("player wins\n");
