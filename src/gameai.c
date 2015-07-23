@@ -181,33 +181,26 @@ read_detectors(char *msg) {
     read_detectors_direction(pos, &countr,
             msg + CI_RIGHT_ISEMPTY, msg + CI_RIGHT_ISOK);
 
-
-
-    //--------- heuristic helping to choose between left/right
-    // count empty cells in rectangle of width s and height t, left
-    // and right of current position and direction
-    // (this seems to work as badly as I thought it would:)
-
-//    int numEmptyLeft  = count_emptyCells(me->pos, me->direction, MoveLeft);
-//    int numEmptyRight = count_emptyCells(me->pos, me->direction, MoveRight);
-//
-//    const int diff = 3;
-//    if (numEmptyLeft - numEmptyRight > diff) {
-//        //left are more empty cells than right
-//        msg[CI_LEFT_ISOK] = '1';
-//        msg[CI_RIGHT_ISOK] = '0';
-//    } else if (numEmptyLeft - numEmptyRight < -diff) {
-//        //right are more empty cells than left
-//        msg[CI_LEFT_ISOK] = '0';
-//        msg[CI_RIGHT_ISOK] = '1';
-//    } else {
-//        //there is roughly an equal number of empty cells on both sides
-//        msg[CI_LEFT_ISOK] = '1';
-//        msg[CI_RIGHT_ISOK] = '1';
-//    }
-    //-----------
-
-    //printf("count_empty_fill(): %d %d\n", count,traceValue);
+    //-----check left/right
+    if (countf == 0 && countl > 0 && countr > 0) {
+        //forward is blocked; left and right are open
+        //favor direction with more empty cells
+        const int diff = 5;
+        if (countl - countr > diff) {
+            //left are more empty cells than right
+            msg[CI_LEFT_ISOK] = '1';
+            msg[CI_RIGHT_ISOK] = '0';
+        } else if (countl - countr < -diff) {
+            //right are more empty cells than left
+            msg[CI_LEFT_ISOK] = '0';
+            msg[CI_RIGHT_ISOK] = '1';
+        } else {
+            //there is roughly an equal number of empty cells on both sides
+            //this could be that both are at or above cutoff
+            msg[CI_LEFT_ISOK] = '1';
+            msg[CI_RIGHT_ISOK] = '1';
+        }
+    }
 
     //------------
     msg[CI_LAST] = 0;
