@@ -13,13 +13,15 @@
 #include <string.h>
 #include <utils/attribute.h>
 
-#define CI_FORWARD_ISEMPTY    0
-#define CI_LEFT_ISEMPTY       1
-#define CI_RIGHT_ISEMPTY      2
-#define CI_FORWARD_ISOK       3
-#define CI_LEFT_ISOK          4
-#define CI_RIGHT_ISOK         5
-#define CI_LAST               6
+enum {
+    CI_FORWARD_ISEMPTY,
+    CI_LEFT_ISEMPTY,
+    CI_RIGHT_ISEMPTY,
+    CI_FORWARD_ISOK,
+    CI_LEFT_ISOK,
+    CI_RIGHT_ISOK,
+    CI_LAST
+};
 
 extern player_t players[NUMPLAYERS];
 //static player_t* other = players + 0;
@@ -43,7 +45,11 @@ static rule_t rules[RULES_LEN];
 
 static int numRules = 0;
 
+/* mapping from enum value to string */
+static char* str_action[] = {"forward", "left", "right"};
 
+/* mapping from enum value to string */
+static char* str_direction[] = {"West", "North", "East", "South"};
 
 static void
 add_rule(char* cond, action_t action, int weight) {
@@ -59,7 +65,6 @@ add_rule(char* cond, action_t action, int weight) {
     }
     dst[i] = '\0';
 
-    //strcpy(cur->cond, cond);
     rules[numRules].action = action;
     rules[numRules].weight = weight;
     numRules++;
@@ -90,9 +95,9 @@ init_rules() {
     add_rule("1##1##", MoveForward, 20);
 
     // 1 of 3 is blocked: forward is blocked, left looks promising
-    add_rule("011#1#", MoveLeft, 20);
+    add_rule("011#1#", MoveLeft, 30);
     // 1 of 3 is blocked: forward is blocked, right looks promising
-    add_rule("011##1", MoveRight, 20);
+    add_rule("011##1", MoveRight, 30);
 }
 
 static coord_t
@@ -113,14 +118,25 @@ get_direction(direction_t dir, action_t action) {
     return ((dir + DirLength) + delta[action]) % DirLength;
 }
 
-static int count = 0;
-static int traceValue = CELL_LEN + 1;
+/* Value recursive functions leave to indicate a cell was visited.
+ * The value is only used by functions that explore the board for
+ * heuristics. Cells marked with this value must be treated
+ * like CELL_EMPTY by the actual game play logic.
+ */
+static int traceValue;
+/* Cutoff value at which recursion is terminated.
+ * */
 static int cutoff = 200;
 
+/*
+ * Count number of empty cells potentially reachable from position pos.
+ * This count is an upper bound, as the allowed moves are more restrictive
+ * than the moves exercised here.
+ * @param pos: current location
+ * @param count: number of empty cells found
+ */
 static void
-count_empty_fill(coord_t pos) {
-
-
+count_emptyCells(coord_t pos, int* count) {
     cell_t cell = get_cell(pos);
     if (cell == traceValue || cell == CELL_P0
     || cell == CELL_P1 || cell == CELL_WALL) {
@@ -129,33 +145,29 @@ count_empty_fill(coord_t pos) {
     }
     // put a "trace value" into cell leaving a trail and marking it non-empty
     put_board(pos, traceValue);
-    if (++count >= cutoff) {
+    if (++(*count) >= cutoff) {
+        //Count could end up being greater than cutoff because we keep
+        //increasing the count as the recursion unwinds. This is on purpose
+        //as it makes count more accurate.
         return;
     }
-    count_empty_fill((coord_t){pos.x - 1, pos.y});
-    count_empty_fill((coord_t){pos.x, pos.y - 1});
-    count_empty_fill((coord_t){pos.x + 1, pos.y});
-    count_empty_fill((coord_t){pos.x, pos.y + 1});
-}
-
-
-static void
-count_emptyCells(coord_t pos, int* _count) {
-    count = 0;
-    traceValue++;
-    count_empty_fill(pos);
-    *_count = count;
+    count_emptyCells((coord_t){pos.x - 1, pos.y}, count);
+    count_emptyCells((coord_t){pos.x, pos.y - 1}, count);
+    count_emptyCells((coord_t){pos.x + 1, pos.y}, count);
+    count_emptyCells((coord_t){pos.x, pos.y + 1}, count);
 }
 
 
 static void
 read_detectors_direction(coord_t pos, int* count, char* isempty, char* isok) {
+    *count = 0;
     if (isempty_cell(pos)) {
         *isempty = '1';
+        traceValue++;
+        assert(traceValue > CELL_LEN);
         count_emptyCells(pos, count);
         *isok = *count > cutoff ? '1' : '0';
     } else {
-        *count = 0;
         *isempty = *isok = '0';
     }
 }
@@ -164,9 +176,9 @@ read_detectors_direction(coord_t pos, int* count, char* isempty, char* isok) {
 static void
 read_detectors(char *msg) {
     coord_t pos;
-    int countf = 0;
-    int countl = 0;
-    int countr = 0;
+    int countf = 0; // number of empty cells in forward direction
+    int countl = 0; // in left direction
+    int countr = 0; // in right direction
 
     //-----forward
     pos = get_newpos(me->pos, me->direction, MoveForward);
@@ -205,9 +217,10 @@ read_detectors(char *msg) {
     //------------
     msg[CI_LAST] = 0;
 
-    printf ("current pos: x=%d y=%d current dir=%d\n", me->pos.x, me->pos.y, me->direction);
-    printf (">> msg: %s\n", msg);
+    printf ("current pos: x=%d y=%d current dir=%d (%s)\n",
+            me->pos.x, me->pos.y, me->direction, str_direction[me->direction]);
     printf ("coutf=%d countl=%d countr=%d\n", countf, countl, countr);
+    printf (">> msg: %s\n", msg);
 }
 
 
@@ -244,7 +257,9 @@ match_rules(char* msg, int* matches, int* numMatches) {
 static void
 debug_print_rules(int* matches, int numMatches) {
     for (int i = 0; i < numRules; i++) {
-        printf("num=%d cond=%s weight=%d action=%d\n", i, rules[i].cond, rules[i].weight, rules[i].action);
+        printf("num=%d cond=%s weight=%d action=%d (%s)\n", i,
+                rules[i].cond, rules[i].weight,
+                rules[i].action, str_action[rules[i].action]);
     }
     printf("matches: ");
     for (int i = 0; i < numMatches; i++) {
@@ -280,14 +295,22 @@ get_action(int* matches, int numMatches) {
 }
 
 
-direction_t
-get_computer_move(uint64_t endTime) {
-
+/*
+ * Called at the beginning of a new single player game.
+ */
+void
+init_computer_move() {
     if (numRules == 0) {
         init_rules();
-        srandom(endTime);
+        srandom(get_current_time());
     }
+    // reset value as variable must not overflow
+    traceValue = CELL_LEN + 1;
+}
 
+
+direction_t
+get_computer_move(uint64_t endTime) {
     static char msg[COND_LEN];
     read_detectors(msg);
 
@@ -297,6 +320,8 @@ get_computer_move(uint64_t endTime) {
 
     action_t action = get_action(matches, numMatches);
 
-    return get_direction(me->direction, action);
-
+    direction_t newdir = get_direction(me->direction, action);
+    printf("computer moves %d (%s)\n", newdir, str_direction[newdir]);
+    printf("--------------------\n");
+    return newdir;
 }

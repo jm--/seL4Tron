@@ -338,6 +338,7 @@ update_world(player_t* p) {
 
 void run_game_1player(direction_t startDir) {
     init_game();
+    init_computer_move();
     p0->direction = startDir;
 
     for (;;) {
@@ -356,7 +357,7 @@ void run_game_1player(direction_t startDir) {
         uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
         //get_computer_move(numCellsX, numCellsX, board, endTime, p1, p0);
         p1->direction = get_computer_move(endTime);
-        printf("computer moves %d\n---------\n", p1->direction);
+
         while (get_current_time() < endTime) {
             // busy waiting
         }
@@ -458,6 +459,6 @@ int main()
     // stack size is configurable via CONFIG_SEL4UTILS_STACK_SIZE
     int err = (int)sel4utils_run_on_stack(&vspace, main_continued, NULL);
     assert(err == 0);
-
+    printf("Bye!\n\n");
     return 0;
 }

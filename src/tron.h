@@ -40,6 +40,7 @@ typedef struct player {
 
 
 uint64_t get_current_time();
+void init_computer_move();
 direction_t get_computer_move(uint64_t endTime);
 cell_t get_cell(const coord_t pos);
 void put_board(const coord_t pos, cell_t element);
