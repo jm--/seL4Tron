@@ -228,6 +228,12 @@ handle_user_input(int numHumanPlayers) {
             // ESC key was pressed - quit game
             return 1;
         }
+        if (c == ' ') {
+            printf("-- PAUSE --\n");
+            while (' ' != ps_cdev_getchar(&inputdev)) {
+                // busy wait
+            }
+        }
 
         // check for all players
         for (int pl = 0; pl < numHumanPlayers; pl++) {
