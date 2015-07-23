@@ -108,6 +108,29 @@ get_direction(direction_t dir, action_t action) {
     return ((dir + DirLength) + delta[action]) % DirLength;
 }
 
+static int count = 0;
+static int traceValue = CELL_LEN + 1;
+
+static void
+count_empty_fill(coord_t pos) {
+    static int cutoff = 200;
+
+    cell_t cell = get_cell(pos);
+    if (cell == traceValue || cell == CELL_P0
+    || cell == CELL_P1 || cell == CELL_WALL) {
+        //cell at location "pos" is not empty
+        return;
+    }
+    // put a "trace value" into cell leaving a trail and marking it non-empty
+    put_board(pos, traceValue);
+    if (++count >= cutoff) {
+        return;
+    }
+    count_empty_fill((coord_t){pos.x - 1, pos.y});
+    count_empty_fill((coord_t){pos.x, pos.y - 1});
+    count_empty_fill((coord_t){pos.x + 1, pos.y});
+    count_empty_fill((coord_t){pos.x, pos.y + 1});
+}
 
 static int
 count_emptyCells(coord_t pos, direction_t dir, action_t action) {
@@ -171,6 +194,12 @@ read_detectors(char *msg) {
         msg[CI_RIGHT_ISOK] = '1';
     }
     //-----------
+    count = 0;
+    traceValue++;
+    count_empty_fill(pos);
+    printf("count_empty_fill(): %d %d\n", count,traceValue);
+
+    //------------
     msg[CI_LAST] = 0;
 
     printf ("current pos: x=%d y=%d current dir=%d\n", me->pos.x, me->pos.y, me->direction);

@@ -19,6 +19,7 @@
 #include <sel4platsupport/plat/timer.h>
 #include <sel4platsupport/arch/io.h>
 #include <sel4utils/vspace.h>
+#include <sel4utils/stack.h>
 #include <simple-stable/simple-stable.h>
 
 #include "graphics.h"
@@ -244,10 +245,9 @@ handle_user_input(int numHumanPlayers) {
     }  // (1)
 }
 
-inline static void
+void
 put_cell(const coord_t pos, cell_t element) {
-    //put element onto board
-    board[pos.x][pos.y] = element;
+    put_board(pos, element);
 
     // Map "element" to a visual representation and put it on the screen.
     // This currently means to fill the (cx, cy) cell with a different color,
@@ -260,11 +260,28 @@ put_cell(const coord_t pos, cell_t element) {
     gfx_draw_rect(pos.x * cellWidth, pos.y * cellWidth, cellWidth, cellWidth, color);
 }
 
+void
+put_board(const coord_t pos, cell_t element) {
+    //put element onto board
+    board[pos.x][pos.y] = element;
+}
+
+
+int
+isempty(const coord_t pos) {
+//    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
+//        return CELL_WALL;
+//    }
+    int cell = board[pos.x][pos.y];
+    return (cell != CELL_P0 && cell != CELL_P1 && cell != CELL_WALL);
+}
+
+
 cell_t
 get_cell(const coord_t pos) {
-    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
-        return CELL_WALL;
-    }
+//    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
+//        return CELL_WALL;
+//    }
     return board[pos.x][pos.y];
 }
 
@@ -305,8 +322,7 @@ static int
 update_world(player_t* p) {
     p->pos.x += deltax[p->direction];
     p->pos.y += deltay[p->direction];
-    cell_t cell = get_cell(p->pos);
-    if (cell == CELL_EMPTY) {
+    if (isempty(p->pos)) {
         put_cell(p->pos, p->entity);
         return 0;
     }
@@ -381,15 +397,9 @@ void run_game_2player() {
     stop_periodic_timer();
 }
 
-int main()
+
+void *main_continued()
 {
-    setup_system();
-
-    /* enable serial driver */
-    platsupport_serial_setup_simple(NULL, &simple, &vka);
-
-    printf("\n\n========= starting ========= \n\n");
-
     printf("initialize keyboard\n");
     init_cdev(PC99_KEYBOARD_PS2, &inputdev);
 
@@ -409,7 +419,7 @@ int main()
             int c = ps_cdev_getchar(&inputdev);
             switch(c) {
             case 27:
-                return 0;
+                return NULL;
                 break;
             case ' ':
             case '2':
@@ -428,5 +438,20 @@ int main()
             }
         } // (1)
     }
+}
+
+int main()
+{
+    setup_system();
+
+    /* enable serial driver */
+    platsupport_serial_setup_simple(NULL, &simple, &vka);
+
+    printf("\n\n========= starting ========= \n\n");
+
+    // stack size is configurable via CONFIG_SEL4UTILS_STACK_SIZE
+    int err = (int)sel4utils_run_on_stack(&vspace, main_continued, NULL);
+    assert(err == 0);
+
     return 0;
 }

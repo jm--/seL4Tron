@@ -27,7 +27,7 @@ typedef struct coord {
 typedef enum { West, North, East, South, DirLength} direction_t;
 
 /* possible things that can be placed onto the board */
-typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL} cell_t ;
+typedef enum { CELL_EMPTY, CELL_P0, CELL_P1, CELL_WALL, CELL_LEN} cell_t ;
 
 typedef struct player {
     /* player's current x and y cell position on the board */
@@ -42,6 +42,7 @@ typedef struct player {
 uint64_t get_current_time();
 direction_t get_computer_move(uint64_t endTime);
 cell_t get_cell(const coord_t pos);
+void put_board(const coord_t pos, cell_t element);
 void waitf();
 
 #endif /* TRON_H_ */
