@@ -268,7 +268,7 @@ put_board(const coord_t pos, cell_t element) {
 
 
 int
-isempty(const coord_t pos) {
+isempty_cell(const coord_t pos) {
 //    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
 //        return CELL_WALL;
 //    }
@@ -322,7 +322,7 @@ static int
 update_world(player_t* p) {
     p->pos.x += deltax[p->direction];
     p->pos.y += deltay[p->direction];
-    if (isempty(p->pos)) {
+    if (isempty_cell(p->pos)) {
         put_cell(p->pos, p->entity);
         return 0;
     }

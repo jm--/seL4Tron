@@ -16,9 +16,10 @@
 #define CI_FORWARD_ISEMPTY    0
 #define CI_LEFT_ISEMPTY       1
 #define CI_RIGHT_ISEMPTY      2
-#define CI_LEFT_ISOK          3
-#define CI_RIGHT_ISOK         4
-#define CI_LAST               5
+#define CI_FORWARD_ISOK       3
+#define CI_LEFT_ISOK          4
+#define CI_RIGHT_ISOK         5
+#define CI_LAST               6
 
 extern player_t players[NUMPLAYERS];
 //static player_t* other = players + 0;
@@ -67,27 +68,31 @@ add_rule(char* cond, action_t action, int weight) {
 
 static void
 init_rules() {
-    // the most desperate moves: there is only one option left,
+    // 2 of 3 is blocked: there is only one option left,
     // so we better take it
     add_rule("100", MoveForward, 1000);
     add_rule("010", MoveLeft, 1000);
     add_rule("001", MoveRight, 1000);
 
-    // it's game over; move forward to end it
+    // 3 of 3 is blocked: it's game over; move forward to end it
     add_rule("000", MoveForward, 1);
+
+    //catch all: low weight because those could be fatal
+    add_rule("1##", MoveForward, 1);
+    add_rule("#1#", MoveLeft, 1);
+    add_rule("##1", MoveRight, 1);
 
     //moving forward (when possible) is not bad because
     //zigzag moves bear the risk of locking ourselves in
-    add_rule("1##", MoveForward, 20);
+    add_rule("111", MoveForward, 5);
 
-    //occasionally, we should make a turn (if cell in move direction is empty)
-    add_rule("#1#", MoveLeft, 2);
-    add_rule("##1", MoveRight, 2);
+    //forward is looking good, so favor forward move even more
+    add_rule("1##1##", MoveForward, 20);
 
-    // forward is blocked; left and right is empty: we have to turn,
-    // turn when directions looks promising
-    add_rule("01#1#", MoveLeft, 20);
-    add_rule("0#1#1", MoveRight, 20);
+    // 1 of 3 is blocked: forward is blocked, left looks promising
+    add_rule("011#1#", MoveLeft, 20);
+    // 1 of 3 is blocked: forward is blocked, right looks promising
+    add_rule("011##1", MoveRight, 20);
 }
 
 static coord_t
@@ -110,10 +115,11 @@ get_direction(direction_t dir, action_t action) {
 
 static int count = 0;
 static int traceValue = CELL_LEN + 1;
+static int cutoff = 200;
 
 static void
 count_empty_fill(coord_t pos) {
-    static int cutoff = 200;
+
 
     cell_t cell = get_cell(pos);
     if (cell == traceValue || cell == CELL_P0
@@ -132,80 +138,83 @@ count_empty_fill(coord_t pos) {
     count_empty_fill((coord_t){pos.x, pos.y + 1});
 }
 
-static int
-count_emptyCells(coord_t pos, direction_t dir, action_t action) {
-    const int slen = 5;  //number of cells sideways
-    const int tlen = 4;  //number of cells back
-    int count = 0;
 
-    assert(action == MoveLeft || action == MoveRight);
-    direction_t dsideways = get_direction(dir, action);
-    direction_t dback = get_direction(dsideways, action);
+static void
+count_emptyCells(coord_t pos, int* _count) {
+    count = 0;
+    traceValue++;
+    count_empty_fill(pos);
+    *_count = count;
+}
 
-    for (int s = 0; s < slen; s++) {
-        coord_t p = pos;
-        for (int t = 0; t < tlen; t++) {
-            if (get_cell(p) == CELL_EMPTY) {
-                count++;
-            }
-            //printf("  > s=%d t=%d x=%d y=%d count=%d\n", s,t,p.x, p.y, count);
-            //waitf();
-            p = get_newpos(p, dback, MoveForward);
-        }
-        pos = get_newpos(pos, dsideways, MoveForward);
+
+static void
+read_detectors_direction(coord_t pos, int* count, char* isempty, char* isok) {
+    if (isempty_cell(pos)) {
+        *isempty = '1';
+        count_emptyCells(pos, count);
+        *isok = *count > cutoff ? '1' : '0';
+    } else {
+        *count = 0;
+        *isempty = *isok = '0';
     }
-
-    return count;
 }
 
 
 static void
 read_detectors(char *msg) {
     coord_t pos;
+    int countf = 0;
+    int countl = 0;
+    int countr = 0;
+
+    //-----forward
     pos = get_newpos(me->pos, me->direction, MoveForward);
-    msg[CI_FORWARD_ISEMPTY] = get_cell(pos) == CELL_EMPTY ? '1':'0';
-
+    read_detectors_direction(pos, &countf,
+            msg + CI_FORWARD_ISEMPTY, msg + CI_FORWARD_ISOK);
+    //-----left
     pos = get_newpos(me->pos, me->direction, MoveLeft);
-    msg[CI_LEFT_ISEMPTY] = get_cell(pos) == CELL_EMPTY ? '1':'0';
-
+    read_detectors_direction(pos, &countl,
+            msg + CI_LEFT_ISEMPTY, msg + CI_LEFT_ISOK);
+    //-----right
     pos = get_newpos(me->pos, me->direction, MoveRight);
-    msg[CI_RIGHT_ISEMPTY] = get_cell(pos) == CELL_EMPTY ? '1':'0';
+    read_detectors_direction(pos, &countr,
+            msg + CI_RIGHT_ISEMPTY, msg + CI_RIGHT_ISOK);
+
+
 
     //--------- heuristic helping to choose between left/right
     // count empty cells in rectangle of width s and height t, left
     // and right of current position and direction
     // (this seems to work as badly as I thought it would:)
 
-    int numEmptyLeft  = count_emptyCells(me->pos, me->direction, MoveLeft);
-    int numEmptyRight = count_emptyCells(me->pos, me->direction, MoveRight);
-
-    const int diff = 3;
-    if (numEmptyLeft - numEmptyRight > diff) {
-        //left are more empty cells than right
-        msg[CI_LEFT_ISOK] = '1';
-        msg[CI_RIGHT_ISOK] = '0';
-    } else if (numEmptyLeft - numEmptyRight < -diff) {
-        //right are more empty cells than left
-        msg[CI_LEFT_ISOK] = '0';
-        msg[CI_RIGHT_ISOK] = '1';
-    } else {
-        //there is roughly an equal number of empty cells on both sides
-        msg[CI_LEFT_ISOK] = '1';
-        msg[CI_RIGHT_ISOK] = '1';
-    }
+//    int numEmptyLeft  = count_emptyCells(me->pos, me->direction, MoveLeft);
+//    int numEmptyRight = count_emptyCells(me->pos, me->direction, MoveRight);
+//
+//    const int diff = 3;
+//    if (numEmptyLeft - numEmptyRight > diff) {
+//        //left are more empty cells than right
+//        msg[CI_LEFT_ISOK] = '1';
+//        msg[CI_RIGHT_ISOK] = '0';
+//    } else if (numEmptyLeft - numEmptyRight < -diff) {
+//        //right are more empty cells than left
+//        msg[CI_LEFT_ISOK] = '0';
+//        msg[CI_RIGHT_ISOK] = '1';
+//    } else {
+//        //there is roughly an equal number of empty cells on both sides
+//        msg[CI_LEFT_ISOK] = '1';
+//        msg[CI_RIGHT_ISOK] = '1';
+//    }
     //-----------
-    count = 0;
-    traceValue++;
-    count_empty_fill(pos);
-    printf("count_empty_fill(): %d %d\n", count,traceValue);
+
+    //printf("count_empty_fill(): %d %d\n", count,traceValue);
 
     //------------
     msg[CI_LAST] = 0;
 
     printf ("current pos: x=%d y=%d current dir=%d\n", me->pos.x, me->pos.y, me->direction);
-    printf ("msg: %s\n", msg);
-    printf ("numEmptyLeft : %d\n", numEmptyLeft);
-    printf ("numEmptyRight: %d\n\n", numEmptyRight);
+    printf (">> msg: %s\n", msg);
+    printf ("coutf=%d countl=%d countr=%d\n", countf, countl, countr);
 }
 
 
