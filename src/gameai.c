@@ -254,11 +254,12 @@ read_detectors(char *msg) {
     //------------
     msg[CI_LAST] = 0;
 
-    printf ("my current pos   : x=%d y=%d current dir=%d (%s)\n",
+    printf ("me : x=%d y=%d dir=%d (%s)\n",
             me->pos.x, me->pos.y, me->direction, str_direction[me->direction]);
-    printf ("other current pos: x=%d y=%d current dir=%d (%s)\n",
-            other->pos.x, other->pos.y, other->direction, str_direction[other->direction]);
-    printf ("coutf=%d countl=%d countr=%d\n", countf, countl, countr);
+    printf ("you: x=%d y=%d dir=%d (%s)\n",
+            other->pos.x, other->pos.y,
+            other->direction, str_direction[other->direction]);
+    printf ("coutf=%d countl=%d countr=%d; ", countf, countl, countr);
     printf ("quadrant=%d\n", quadrant);
     printf (">> msg: %s\n", msg);
 }
@@ -295,17 +296,23 @@ match_rules(char* msg, int* matches, int* numMatches) {
 }
 
 static void
-debug_print_rules(int* matches, int numMatches) {
+debug_print_rules(int* matches, int numMatches, int ruleid) {
+    int* m = matches;
     for (int i = 0; i < numRules; i++) {
-        printf("num=%d cond=%s weight=%d action=%d (%s)\n", i,
+        printf("num=%2d cond=%s weight=%4d action=%d (%s)", i,
                 rules[i].cond, rules[i].weight,
                 rules[i].action, str_action[rules[i].action]);
+        if ((m - matches) < numMatches && i == *m) {
+            //rule i matched message
+            printf(" <==");
+            m++;
+        }
+        if (i == ruleid) {
+            printf(" *selected*");
+        }
+        printf("\n");
     }
-    printf("matches: ");
-    for (int i = 0; i < numMatches; i++) {
-        printf("%d ", matches[i]);
-    }
-    printf("\n");
+    printf("picking rule num: %d\n", ruleid);
 }
 
 static action_t
@@ -313,7 +320,6 @@ get_action(int* matches, int numMatches) {
     assert(numMatches < RULES_LEN);
     assert(numMatches > 0);
 
-    debug_print_rules(matches, numMatches);
     // roulette wheel selection
     int totalWeight = 0;
     for (int i = 0; i < numMatches; i++) {
@@ -329,7 +335,7 @@ get_action(int* matches, int numMatches) {
         }
     }
 
-    printf("picking matched rule i=%d, which is rule i=%d\n", i,matches[i]);
+    debug_print_rules(matches, numMatches, matches[i]);
 
     return rules[matches[i]].action;
 }
