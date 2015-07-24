@@ -20,11 +20,13 @@ enum {
     CI_FORWARD_ISOK,
     CI_LEFT_ISOK,
     CI_RIGHT_ISOK,
+    CI_QUADRANT_D1,
+    CI_QUADRANT_D0,
     CI_LAST
 };
 
 extern player_t players[NUMPLAYERS];
-//static player_t* other = players + 0;
+static player_t* other = players + 0;
 static player_t* me = players + 1;
 
 
@@ -98,7 +100,24 @@ init_rules() {
     add_rule("011#1#", MoveLeft, 30);
     // 1 of 3 is blocked: forward is blocked, right looks promising
     add_rule("011##1", MoveRight, 30);
+
+    //rules including quadrants: (those may not be helpful at all)
+    //other is in Q1 (in front of me, right)
+    add_rule("1##1##00", MoveForward, 20);
+    //other is in Q2 (in front of me, left)
+    add_rule("1##1##01", MoveForward, 20);
+
+    //other is in Q2 (in front of me, left)
+    add_rule("#1##1#01", MoveLeft, 5);
+    //other is in Q3 (behind me, left)
+    add_rule("#1##1#10", MoveLeft, 40);
+
+    //other is in Q1 (in front of me, right)
+    add_rule("##1##100", MoveRight, 5);
+    //other is in Q4 (behind me, right)
+    add_rule("##1##111", MoveRight, 40);
 }
+
 
 static coord_t
 get_newpos(coord_t pos, direction_t dir, action_t action) {
@@ -214,12 +233,33 @@ read_detectors(char *msg) {
         }
     }
 
+    //------------ get the quadrant human player is in relative to "me"
+    int dx = other->pos.x - me->pos.x;
+    int dy = -(other->pos.y - me->pos.y);
+
+    //imagine me->pos at the origin of a coordinate system with positive
+    //y-axis in direction me->direction; find the quadrant in which
+    //human player is in
+    int quadrant = (dx >= 0 ? (dy >= 0 ? 3:2) : (dy >= 0 ? 0:1));
+    quadrant = (quadrant + me-> direction) % 4 + 1;
+
+    //binary encode quadrant 1=00b; 2=01b; 3=10b; 4=11b
+    //lower order bit
+    msg[CI_QUADRANT_D0] = quadrant == 2 || quadrant == 4 ? '1' : '0';
+    //higher order bit
+    msg[CI_QUADRANT_D1] = quadrant == 3 || quadrant == 4 ? '1' : '0';
+
+
+
     //------------
     msg[CI_LAST] = 0;
 
-    printf ("current pos: x=%d y=%d current dir=%d (%s)\n",
+    printf ("my current pos   : x=%d y=%d current dir=%d (%s)\n",
             me->pos.x, me->pos.y, me->direction, str_direction[me->direction]);
+    printf ("other current pos: x=%d y=%d current dir=%d (%s)\n",
+            other->pos.x, other->pos.y, other->direction, str_direction[other->direction]);
     printf ("coutf=%d countl=%d countr=%d\n", countf, countl, countr);
+    printf ("quadrant=%d\n", quadrant);
     printf (">> msg: %s\n", msg);
 }
 
