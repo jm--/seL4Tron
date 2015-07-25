@@ -297,13 +297,13 @@ void init_game() {
     *p0 = (player_t) {
             .pos.x = numCellsX * 3 / 4,
             .pos.y = numCellsY / 2,
-            .direction = East,
+            .direction = North,
             .entity = CELL_P0
     };
     *p1 = (player_t) {
             .pos.x = numCellsX * 1 / 4,
             .pos.y = numCellsY / 2,
-            .direction = West,
+            .direction = North,
             .entity = CELL_P1
     };
 
@@ -336,107 +336,52 @@ update_world(player_t* p) {
         put_cell(p->pos, p->entity);
         return 0;
     }
+    printf("game over: player %d crashed\n", p->entity);
     return 1;
 }
 
 
-
-void run_game_0player() {
+/*
+ * Main game loop.
+ * @param numPl: number of human players; 0, 1, or 2
+ * @param startDir: start direction of player p0; may be different from
+ *        default direction when game was started with direction key press.
+ * @return: 0 game ended regularly; 1=cancel key was pressed
+ */
+static int
+run_game(int numPl, direction_t startDir) {
     const uint64_t dt = (10 * NS_IN_MS) * 100 / speed;
+    int game_over = 0;
+    int cancel = 0;
+    int step = 0;
 
-    init_game();
-    init_computer_move();
-
-    for (;;) {
-        uint64_t startTime = get_current_time();  // in ns
-        p0->direction = get_computer_move(startTime + dt/2, p0, p1);
-        int crash = update_world(p0);
-        if (crash) {
-            printf("p0 wins\n");
-            break;
-        }
-        p1->direction = get_computer_move(startTime + dt, p1, p0);
-        crash = update_world(p1);
-
-        while (get_current_time() < startTime + dt) {
-            // busy waiting
-        }
-        if (crash) {
-            printf("p1 wins\n");
-            break;
-        }
-    }
-}
-
-
-
-
-void run_game_1player(direction_t startDir) {
+    assert(0 <= numPl && numPl <= 2);
     init_game();
     init_computer_move();
     p0->direction = startDir;
-
-    for (;;) {
-        // human player moves
-        int crash = update_world(p0);
-        if (crash) {
-            printf("computer wins\n");
-            break;
-        }
-        // computer player moves
-
-        // get current time in ns
-        uint64_t startTime = get_current_time();
-        // time when computer has to stop "thinking"; use the same
-        // formula as for IRQ timing: (IRQ timer period) * (number of loops)
-        uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
-        //get_computer_move(numCellsX, numCellsX, board, endTime, p1, p0);
-        p1->direction = get_computer_move(endTime, p1, p0);
-
-        while (get_current_time() < endTime) {
-            // busy waiting
-        }
-        crash = update_world(p1);
-        if (crash) {
-            printf("player wins\n");
-            break;
-        }
-        // get next human player move
-        int quit = handle_user_input(1);
-        if (quit) {
-            break;
-        }
-    }
-}
-
-void run_game_2player() {
-    init_game();
-
     start_periodic_timer();
-    for (;;) {
-        wait_for_timer();
-        int quit = handle_user_input(2);
-        if (quit) {
-            break;
-        }
-        int crash0 = update_world(p0);
-        int crash1 = update_world(p1);
-        if ((crash0 && crash1)
-        || (p0->pos.x == p1->pos.x && p0->pos.y == p1->pos.y)) {
-            printf("both crash\n");
-            break;
-        }
-        if (crash0) {
-            printf("player 2 wins\n");
-            break;
-        }
-        if (crash1) {
-            printf("player 1 wins\n");
-            break;
-        }
 
+    while (!cancel && !game_over) {
+        uint64_t startTime = get_current_time();  // in ns
+        cancel = handle_user_input(numPl);
+        if (!cancel) {
+            if (numPl == 0) {
+                p0->direction = get_computer_move(startTime + dt / 2, p0, p1);
+            }
+            game_over = update_world(p0);
+            if (!game_over) {
+                if (numPl == 0 || numPl == 1) {
+                    p1->direction = get_computer_move(startTime + dt, p1, p0);
+                }
+                game_over = update_world(p1);
+            }
+        }
+        wait_for_timer();
+        step++;
     }
     stop_periodic_timer();
+    printf("Game lasted %d rounds.\n", step);
+    return cancel;
 }
 
 
@@ -457,32 +402,30 @@ void *main_continued()
 
     for (;;) {
         gfx_diplay_ppm(10, 10, "sel4.ppm");
-        for (;;) { // (1)
+        int cancel = 0;
+        while (!cancel) { // (1)
             int c = ps_cdev_getchar(&inputdev);
             switch(c) {
             case 27:
+                // quit game
                 return NULL;
                 break;
-            case ' ':
-            case '2':
-                run_game_2player();
-                break;
-            case '1':
-                run_game_1player(North);
-                break;
             case '0':
-                run_game_0player();
+            case '1':
+            case '2':
+                cancel = run_game(c - '0', North);
                 break;
             default:
                 // game starts with "direction key" press
                 for (int i = 0; i < DirLength; i++) {
                     if (keymap[0][i] == c) {
-                        run_game_1player(dir_forward[i]);
+                        cancel = run_game(1, dir_forward[i]);
                     }
                 }
             }
         } // (1)
     }
+    return NULL;
 }
 
 int main()
