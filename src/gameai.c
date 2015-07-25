@@ -25,9 +25,6 @@ enum {
     CI_LAST
 };
 
-extern player_t players[NUMPLAYERS];
-static player_t* other = players + 0;
-static player_t* me = players + 1;
 
 
 
@@ -193,7 +190,7 @@ read_detectors_direction(coord_t pos, int* count, char* isempty, char* isok) {
 
 
 static void
-read_detectors(char *msg) {
+read_detectors(char *msg, player_t* me, player_t* you) {
     coord_t pos;
     int countf = 0; // number of empty cells in forward direction
     int countl = 0; // in left direction
@@ -234,8 +231,8 @@ read_detectors(char *msg) {
     }
 
     //------------ get the quadrant human player is in relative to "me"
-    int dx = other->pos.x - me->pos.x;
-    int dy = -(other->pos.y - me->pos.y);
+    int dx = you->pos.x - me->pos.x;
+    int dy = -(you->pos.y - me->pos.y);
 
     //imagine me->pos at the origin of a coordinate system with positive
     //y-axis in direction me->direction; find the quadrant in which
@@ -254,11 +251,12 @@ read_detectors(char *msg) {
     //------------
     msg[CI_LAST] = 0;
 
-    printf ("me : x=%d y=%d dir=%d (%s)\n",
-            me->pos.x, me->pos.y, me->direction, str_direction[me->direction]);
-    printf ("you: x=%d y=%d dir=%d (%s)\n",
-            other->pos.x, other->pos.y,
-            other->direction, str_direction[other->direction]);
+    printf ("me (player %d) : x=%d y=%d dir=%d (%s)\n",
+            me->entity, me->pos.x, me->pos.y, me->direction,
+            str_direction[me->direction]);
+    printf ("you (player %d): x=%d y=%d dir=%d (%s)\n",
+            you->entity, you->pos.x, you->pos.y,
+            you->direction, str_direction[you->direction]);
     printf ("coutf=%d countl=%d countr=%d; ", countf, countl, countr);
     printf ("quadrant=%d\n", quadrant);
     printf (">> msg: %s\n", msg);
@@ -356,9 +354,9 @@ init_computer_move() {
 
 
 direction_t
-get_computer_move(uint64_t endTime) {
+get_computer_move(uint64_t endTime, player_t* me, player_t* you) {
     static char msg[COND_LEN];
-    read_detectors(msg);
+    read_detectors(msg, me, you);
 
     int matches[RULES_LEN];
     int numMatches;

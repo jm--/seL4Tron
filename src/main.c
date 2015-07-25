@@ -340,6 +340,37 @@ update_world(player_t* p) {
 }
 
 
+
+void run_game_0player() {
+    const uint64_t dt = (10 * NS_IN_MS) * 100 / speed;
+
+    init_game();
+    init_computer_move();
+
+    for (;;) {
+        uint64_t startTime = get_current_time();  // in ns
+        p0->direction = get_computer_move(startTime + dt/2, p0, p1);
+        int crash = update_world(p0);
+        if (crash) {
+            printf("p0 wins\n");
+            break;
+        }
+        p1->direction = get_computer_move(startTime + dt, p1, p0);
+        crash = update_world(p1);
+
+        while (get_current_time() < startTime + dt) {
+            // busy waiting
+        }
+        if (crash) {
+            printf("p1 wins\n");
+            break;
+        }
+    }
+}
+
+
+
+
 void run_game_1player(direction_t startDir) {
     init_game();
     init_computer_move();
@@ -360,7 +391,7 @@ void run_game_1player(direction_t startDir) {
         // formula as for IRQ timing: (IRQ timer period) * (number of loops)
         uint64_t endTime = startTime + (10 * NS_IN_MS) * 100 / speed;
         //get_computer_move(numCellsX, numCellsX, board, endTime, p1, p0);
-        p1->direction = get_computer_move(endTime);
+        p1->direction = get_computer_move(endTime, p1, p0);
 
         while (get_current_time() < endTime) {
             // busy waiting
@@ -438,6 +469,9 @@ void *main_continued()
                 break;
             case '1':
                 run_game_1player(North);
+                break;
+            case '0':
+                run_game_0player();
                 break;
             default:
                 // game starts with "direction key" press
