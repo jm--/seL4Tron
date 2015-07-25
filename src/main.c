@@ -22,8 +22,9 @@
 #include <sel4utils/stack.h>
 #include <simple-stable/simple-stable.h>
 
-#include "graphics.h"
 #include "tron.h"
+#include "graphics.h"
+#include "inputqueue.h"
 
 
 /* memory management: Virtual Kernel Allocator (VKA) interface and VSpace */
@@ -206,54 +207,17 @@ init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
 }
 
 
-
-#define INPUTQUEUE_LEN 10
-typedef struct {
-    direction_t queue[INPUTQUEUE_LEN];
-    int head;
-    int tail;
-
-} inputqueue_t;
-
-static inputqueue_t q[NUMPLAYERS];
-
-static int
-get_nextdir(int pl) {
-    if (q[pl].head == q[pl].tail) {
-        return -1;
-    }
-    int v = q[pl].queue[q[pl].head];
-    q[pl].head = (q[pl].head + 1) % INPUTQUEUE_LEN;
-    return v;
-}
-
-static void
-put_nextdir(int pl, int v) {
-    int ntail = (q[pl].tail + 1) % INPUTQUEUE_LEN;
-    if (q[pl].head == ntail) {
-        return;
-    }
-    q[pl].queue[q[pl].tail] = v;
-    q[pl].tail = ntail;
-}
-
-static void
-init_nextdir() {
-    for (int i = 0; i < NUMPLAYERS; i++) {
-        q[i].head = q[i].tail = 0;
-    }
-}
-
-
 static int
 handle_user_input(int numHumanPlayers) {
     for (;;) { // (1)
         int c = ps_cdev_getchar(&inputdev);
-        if (c == EOF) {
+        switch (c) {
+        case EOF:
             //read till we get EOF
             for (int pl = 0; pl < numHumanPlayers; pl++) {
                 int newdir;
                 while ((newdir = get_nextdir(pl)) >= 0) {
+                    // skip over forward and backward moves
                     if (newdir != players[pl].direction
                     && newdir !=  dir_back[players[pl].direction]) {
                         players[pl].direction = newdir;
@@ -262,29 +226,29 @@ handle_user_input(int numHumanPlayers) {
                 }
             }
             return 0;
-        }
-        if (c == 27) {
+        case 27:
             // ESC key was pressed - quit game
             return 1;
-        }
-        if (c == ' ') {
+        case ' ':
             printf("-- PAUSE --\n");
             while (' ' != ps_cdev_getchar(&inputdev)) {
                 // busy wait
             }
-        }
-
-        // check for all players
-        for (int pl = 0; pl < numHumanPlayers; pl++) {
-            // check all directions
-            for (int dir = 0; dir < DirLength; dir++) {
-                if (c == keymap[pl][dir]) {
-                    put_nextdir(pl, dir);
-                    break;
+            break;
+        default:
+            // demultiplex input: check for all players
+            for (int pl = 0; pl < numHumanPlayers; pl++) {
+                // check all directions
+                for (int dir = 0; dir < DirLength; dir++) {
+                    if (c == keymap[pl][dir]) {
+                        // add direction to respective input queue
+                        put_nextdir(pl, dir);
+                        break;
+                    }
                 }
             }
-        }
-    }  // (1)
+        } // switch
+    } // (1)
 }
 
 
