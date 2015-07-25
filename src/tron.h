@@ -16,6 +16,8 @@
 #define xRes 640
 #define yRes 480
 #define cellWidth 10
+/* lineWidth must be less than or equal cellWidth and an even number */
+#define lineWidth 6
 #define numCellsX (xRes / cellWidth)
 #define numCellsY (yRes / cellWidth)
 

@@ -71,8 +71,6 @@ static ps_chardevice_t inputdev;
 direction_t dir_forward[] = { West, North, East, South};
 direction_t dir_back[] = { East, South, West, North};
 
-int deltax[] = {-1, 0 , 1, 0 };
-int deltay[] = {0, -1 , 0, 1 };
 
 static char *keymap[] = { "jilk", "awds"};
 
@@ -252,18 +250,31 @@ handle_user_input(int numHumanPlayers) {
 }
 
 
-void
-put_cell(const coord_t pos, cell_t element) {
-    put_board(pos, element);
-
-    // Map "element" to a visual representation and put it on the screen.
-    // This currently means to fill the (cx, cy) cell with a different color,
-    // but this could be more elaborate.
+/*
+ * Map cell "element" to a color.
+ */
+static int32_t
+map_color(cell_t element) {
     uint32_t colors[] = {0
             , gfx_map_color(0, 200, 0)
             , gfx_map_color(0, 0, 200)
             , gfx_map_color(200, 0, 0)};
-    uint32_t color = colors[element];
+    return colors[element];
+}
+
+
+/*
+ * Put cell element "element" onto the board, and draw it on screen.
+ * This currently means to fill the cell with a unique color,
+ * but this could be more elaborate...
+ * @param pos: location of element
+ * @param element: type of cell element (e.g. wall)
+ *
+ */
+static void
+put_cell(const coord_t pos, cell_t element) {
+    put_board(pos, element);
+    uint32_t color = map_color(element);
     gfx_draw_rect(pos.x * cellWidth, pos.y * cellWidth, cellWidth, cellWidth, color);
 }
 
@@ -319,21 +330,50 @@ void init_game() {
         }
     }
 
-    // draw players at start position
+    // place players at start position
     for (int i = 0; i < NUMPLAYERS; i++) {
-        put_cell(players[i].pos, players[i].entity);
+        put_board(players[i].pos, players[i].entity);
     }
 
     // initialize input queues
     init_nextdir();
 }
 
+/*
+ * Update player position according to current direction.
+ * Draw a line (a filled rectangle) from old to new cell position.
+ * @param p: player p0 or p1
+ * @return: 0 move was okay (new cell was empty); 1 cell was not empty
+ */
 static int
 update_world(player_t* p) {
-    p->pos.x += deltax[p->direction];
-    p->pos.y += deltay[p->direction];
+    /* delta step (cells) */
+    static const coord_t delta[] = {{-1, 0}, {0,-1}, {1,0}, {0,1}};
+    /* offset from top left corner of cell to top left corner of rect. (pixel) */
+    static const int offset = (cellWidth - lineWidth ) / 2;
+    /* undo delta step if move was East or South because we start drawing
+     * rectangle from the cell closer to the top left corner of the board */
+    static const coord_t start[] = { {0,0}, {0,0}, {-1,0}, {0,-1}};
+    /* width and height of rectangle we draw (pixels)*/
+    static const coord_t wh[] = {
+            {cellWidth + lineWidth,lineWidth},
+            {lineWidth,cellWidth + lineWidth},
+            {cellWidth + lineWidth,lineWidth},
+            {lineWidth,cellWidth + lineWidth}
+    };
+
+    p->pos.x += delta[p->direction].x;
+    p->pos.y += delta[p->direction].y;
+
+    /* rectangle, top left corner (pixels) */
+    int lx = (p->pos.x + start[p->direction].x) * cellWidth + offset;
+    int ly = (p->pos.y + start[p->direction].y) * cellWidth + offset;
+
+    gfx_draw_rect(lx, ly, wh[p->direction].x, wh[p->direction].y,
+            map_color(p->entity));
+
     if (isempty_cell(p->pos)) {
-        put_cell(p->pos, p->entity);
+        put_board(p->pos, p->entity);
         return 0;
     }
     printf("game over: player %d crashed\n", p->entity);
