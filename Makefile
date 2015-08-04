@@ -29,7 +29,7 @@ endif
 
 include $(SEL4_COMMON)/common.mk
 
-CPIO_FILES := sel4.ppm
+CPIO_FILES := images/sel4.ppm images/title.ppm
 CPIO_FILES_FULL := $(addprefix $(SOURCE_DIR)/, $(CPIO_FILES))
 
 archive.o: $(CPIO_FILES_FULL)

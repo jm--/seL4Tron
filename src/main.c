@@ -434,6 +434,7 @@ void *main_continued()
     gfx_init_IA32BootInfo(bootinfo2);
     gfx_map_video_ram(&io_ops.io_mapper);
     gfx_display_testpic();
+    gfx_diplay_ppm(0, 0, "sel4.ppm");
 
     printf("initialize timers\n");
     fflush(stdout);
@@ -441,13 +442,15 @@ void *main_continued()
     printf("done\n");
 
     for (;;) {
-        gfx_diplay_ppm(10, 10, "sel4.ppm");
+        gfx_fill_screen(0);
+        gfx_diplay_ppm((xRes - 200) / 2, 30, "title.ppm");
         int cancel = 0;
         while (!cancel) { // (1)
             int c = ps_cdev_getchar(&inputdev);
             switch(c) {
             case 27:
                 // quit game
+                gfx_fill_screen(0);
                 return NULL;
                 break;
             case '0':
