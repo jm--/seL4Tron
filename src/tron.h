@@ -10,7 +10,7 @@
 #ifndef TRON_H_
 #define TRON_H_
 
-#include <sel4/types.h>
+#include <stdint.h>
 
 #define NUMPLAYERS 2
 #define xRes 640

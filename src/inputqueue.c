@@ -14,7 +14,7 @@
  * two clicked the move right key.) Then the next move for P1 is to move up
  * and for player P2 to move right. P1_left remains in the input queue.
  */
-
+#include <assert.h>
 #include "tron.h"
 
 
