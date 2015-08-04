@@ -434,10 +434,15 @@ run_game(int numPl, direction_t startDir) {
 }
 
 
+/*
+ * "Load" images for game title and main menu, and display them
+ * approximately centered on the screen.
+ */
 static void
 show_startscreen() {
     gfx_fill_screen(0);
     gfx_diplay_ppm((xRes - 200) / 2, 30, "title.ppm", 1);
+    gfx_diplay_ppm((xRes - 160) / 2, 150, "menu.ppm", 1);
 }
 
 
