@@ -304,21 +304,16 @@ get_cell(const coord_t pos) {
 }
 
 
-void init_game() {
-    *p0 = (player_t) {
-            .pos.x = numCellsX * 3 / 4,
-            .pos.y = numCellsY / 2,
-            .direction = North,
-            .entity = CELL_P0,
-            .name = "GREEN"
-    };
-    *p1 = (player_t) {
-            .pos.x = numCellsX * 1 / 4,
-            .pos.y = numCellsY / 2,
-            .direction = North,
-            .entity = CELL_P1,
-            .name = "BLUE"
-    };
+/*
+ * Initialize the game state for a new round of play.
+ * (E.g. reset player position but not score.)
+ */
+static void
+init_game_newround() {
+    p0->direction = p1->direction = North;
+    p0->pos.x = numCellsX * 3 / 4;
+    p1->pos.x = numCellsX * 1 / 4;
+    p0->pos.y = p1->pos.y = numCellsY / 2;
 
     // clear board and draw boarder walls
     for (int y = 0; y < numCellsY; y++) {
@@ -340,6 +335,26 @@ void init_game() {
     // initialize input queues
     init_nextdir();
 }
+
+
+/*
+ * Initialize the game state. Reset everything.
+ */
+static void
+init_game_all() {
+    *p0 = (player_t) {
+            .entity = CELL_P0,
+            .name = "GREEN",
+            .score = 0
+    };
+    *p1 = (player_t) {
+            .entity = CELL_P1,
+            .name = "BLUE",
+            .score = 0
+    };
+    init_game_newround();
+}
+
 
 /*
  * Update player position according to current direction.
@@ -381,7 +396,11 @@ update_world(player_t* p) {
 
     /* player p has crashed, so the other player has won */
     player_t* pwinning = p == p0 ? p1 : p0;
+    pwinning->score++;
     printf("GAME OVER: %s wins!\n", pwinning->name);
+    printf("%s %d wins : %s %d wins\n"
+            , p0->name, p0->score
+            , p1->name, p1->score);
     char win_filename[30];
     sprintf(win_filename, "player%dwins.ppm", pwinning - players);
     gfx_diplay_ppm((xRes - 120) / 2, yRes / 3, win_filename, 0.6);
@@ -405,7 +424,7 @@ run_game(int numPl, direction_t startDir) {
     int step = 0;
 
     assert(0 <= numPl && numPl <= 2);
-    init_game();
+    init_game_newround();
     init_computer_move();
     p0->direction = startDir;
     start_periodic_timer();
@@ -429,7 +448,7 @@ run_game(int numPl, direction_t startDir) {
         step++;
     }
     stop_periodic_timer();
-    printf("Game lasted %d rounds.\n", step);
+    printf("Game lasted %d moves.\n", step);
     return cancel;
 }
 
@@ -464,6 +483,7 @@ static void
     printf("done\n");
 
     for (;;) {
+        init_game_all();
         show_startscreen();
         int cancel = 0;
         int startscreen = 1; // we are on start screen

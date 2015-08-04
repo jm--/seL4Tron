@@ -40,6 +40,8 @@ typedef struct player {
     cell_t entity;
     /* name of the player */
     char* name;
+    /* player's current score */
+    int score;
 } player_t;
 
 
