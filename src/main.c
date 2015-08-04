@@ -309,13 +309,15 @@ void init_game() {
             .pos.x = numCellsX * 3 / 4,
             .pos.y = numCellsY / 2,
             .direction = North,
-            .entity = CELL_P0
+            .entity = CELL_P0,
+            .name = "GREEN"
     };
     *p1 = (player_t) {
             .pos.x = numCellsX * 1 / 4,
             .pos.y = numCellsY / 2,
             .direction = North,
-            .entity = CELL_P1
+            .entity = CELL_P1,
+            .name = "BLUE"
     };
 
     // clear board and draw boarder walls
@@ -376,7 +378,14 @@ update_world(player_t* p) {
         put_board(p->pos, p->entity);
         return 0;
     }
-    printf("game over: player %d crashed\n", p->entity);
+
+    /* player p has crashed, so the other player has won */
+    player_t* pwinning = p == p0 ? p1 : p0;
+    printf("GAME OVER: %s wins!\n", pwinning->name);
+    char win_filename[30];
+    sprintf(win_filename, "player%dwins.ppm", pwinning - players);
+    gfx_diplay_ppm((xRes - 120) / 2, yRes / 3, win_filename, 0.6);
+
     return 1;
 }
 
@@ -425,7 +434,15 @@ run_game(int numPl, direction_t startDir) {
 }
 
 
-void *main_continued()
+static void
+show_startscreen() {
+    gfx_fill_screen(0);
+    gfx_diplay_ppm((xRes - 200) / 2, 30, "title.ppm", 1);
+}
+
+
+static void
+*main_continued()
 {
     printf("initialize keyboard\n");
     init_cdev(PC99_KEYBOARD_PS2, &inputdev);
@@ -434,7 +451,7 @@ void *main_continued()
     gfx_init_IA32BootInfo(bootinfo2);
     gfx_map_video_ram(&io_ops.io_mapper);
     gfx_display_testpic();
-    gfx_diplay_ppm(0, 0, "sel4.ppm");
+    gfx_diplay_ppm(0, 0, "sel4.ppm", 1);
 
     printf("initialize timers\n");
     fflush(stdout);
@@ -442,34 +459,44 @@ void *main_continued()
     printf("done\n");
 
     for (;;) {
-        gfx_fill_screen(0);
-        gfx_diplay_ppm((xRes - 200) / 2, 30, "title.ppm");
+        show_startscreen();
         int cancel = 0;
+        int startscreen = 1; // we are on start screen
         while (!cancel) { // (1)
             int c = ps_cdev_getchar(&inputdev);
             switch(c) {
             case 27:
-                // quit game
-                gfx_fill_screen(0);
-                return NULL;
+                // ESC was pressed
+                if (startscreen) {
+                    // ESC on start screen means quit game
+                    gfx_fill_screen(0);
+                    return NULL;
+                } else {
+                    // ESC on game-over screen means show start screen
+                    cancel = 1;
+                }
                 break;
-            case '0':
-            case '1':
+            case '0': /* fall through */
+            case '1': /* fall through */
             case '2':
+                startscreen = 0;
                 cancel = run_game(c - '0', North);
                 break;
             default:
                 // game starts with "direction key" press
                 for (int i = 0; i < DirLength; i++) {
                     if (keymap[0][i] == c) {
+                        startscreen = 0;
                         cancel = run_game(1, dir_forward[i]);
                     }
                 }
+                break;
             }
         } // (1)
     }
     return NULL;
 }
+
 
 int main()
 {

@@ -38,6 +38,8 @@ typedef struct player {
     direction_t direction;
     /* entity of player: CELL_P0 or CELL_P1 */
     cell_t entity;
+    /* name of the player */
+    char* name;
 } player_t;
 
 

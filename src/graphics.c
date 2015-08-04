@@ -147,9 +147,16 @@ gfx_map_color(uint8_t r, uint8_t g, uint8_t b) {
          | (b << mib.linBlueOff);
 }
 
+
 inline static void
 gfx_draw_point(const int x, const int y, const uint32_t c) {
     fb[y * mib.xRes + x] = c;
+}
+
+
+inline static uint32_t
+gfx_get_point(const int x, const int y) {
+    return fb[y * mib.xRes + x];
 }
 
 
@@ -170,11 +177,14 @@ gfx_fill_screen(uint32_t c) {
 
 
 /*
+ * "Load" a PPM image from the cpio archive and display it on the screen
+ * at location (startx, starty) with given opacity level.
  * see https://en.wikipedia.org/wiki/Netpbm_format for PPM format
  */
 void
-gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename) {
+gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename, float opacity) {
     assert(filename);
+    assert(opacity >= 0 && opacity <= 1.0);
     unsigned long filesize;
     void * img = cpio_get_file(_cpio_archive, filename, &filesize);
     assert(img);
@@ -197,6 +207,18 @@ gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename) {
             uint8_t r = *src++;
             uint8_t g = *src++;
             uint8_t b = *src++;
+
+            if (opacity < 1.0) {
+                uint32_t backgrnd = gfx_get_point(startx + x, starty + y);
+                uint8_t r2 = (backgrnd & 0xFF0000) >> 16;
+                uint8_t g2 = (backgrnd & 0xFF00) >> 8;
+                uint8_t b2 = (backgrnd & 0xFF);
+
+                r = r * opacity + r2 * (1.0 - opacity);
+                g = g * opacity + g2 * (1.0 - opacity);
+                b = b * opacity + b2 * (1.0 - opacity);
+            }
+
             uint32_t color = gfx_map_color(r, g, b);
             gfx_draw_point(startx + x, starty + y, color);
         }

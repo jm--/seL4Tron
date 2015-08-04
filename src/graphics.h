@@ -85,6 +85,6 @@ gfx_fill_screen(uint32_t c);
  * at (startx, starty) coordinate.
  */
 void
-gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename);
+gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename, float transp);
 
 #endif /* GRAPHICS_H_ */
