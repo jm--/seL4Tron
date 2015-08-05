@@ -403,7 +403,7 @@ update_world(player_t* p) {
             , p1->name, p1->score);
     char win_filename[30];
     sprintf(win_filename, "player%dwins.ppm", pwinning - players);
-    gfx_diplay_ppm((xRes - 120) / 2, yRes / 3, win_filename, 0.6);
+    gfx_diplay_ppm((XRES - 120) / 2, YRES / 3, win_filename, 0.6);
 
     return 1;
 }
@@ -459,15 +459,28 @@ run_game(int numPl, direction_t startDir) {
  */
 static void
 show_startscreen() {
+    /* width of actual screen (pixels) */
+    int width = bootinfo2->vbeModeInfoBlock.xRes;
     gfx_fill_screen(0);
-    gfx_diplay_ppm((xRes - 200) / 2, 30, "title.ppm", 1);
-    gfx_diplay_ppm((xRes - 160) / 2, 150, "menu.ppm", 1);
+    gfx_diplay_ppm((width - 200) / 2, 30, "title.ppm", 1);
+    gfx_diplay_ppm((width - 160) / 2, 150, "menu.ppm", 1);
 }
 
 
 static void
 *main_continued()
 {
+    if (bootinfo2 == NULL
+    || bootinfo2->vbeModeInfoBlock.xRes < XRES
+    || bootinfo2->vbeModeInfoBlock.yRes < YRES
+    || bootinfo2->vbeModeInfoBlock.bitsPerPixel != 32) {
+        printf("Error: minimum graphics requirements not met\n");
+        printf("Please boot the kernel in graphics mode ");
+        printf("with 640x480 (or higher) and ");
+        printf("a color depth of 32 bpp!\n\n");
+        exit(EXIT_FAILURE);
+    }
+
     printf("initialize keyboard\n");
     init_cdev(PC99_KEYBOARD_PS2, &inputdev);
 

@@ -13,13 +13,13 @@
 #include <stdint.h>
 
 #define NUMPLAYERS 2
-#define xRes 640
-#define yRes 480
+#define XRES 640
+#define YRES 480
 #define cellWidth 10
 /* lineWidth must be less than or equal cellWidth and an even number */
 #define lineWidth 6
-#define numCellsX (xRes / cellWidth)
-#define numCellsY (yRes / cellWidth)
+#define numCellsX (XRES / cellWidth)
+#define numCellsY (YRES / cellWidth)
 
 typedef struct coord {
     int x;
