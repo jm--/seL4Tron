@@ -26,6 +26,13 @@
 #include "graphics.h"
 #include "inputqueue.h"
 
+/*
+ * Lots of global variables here, but at least they are all static. I tried
+ * to keep everything simple and not to over-engineer anything. In particular,
+ * the game logic (gameai.c) is independent with a clean interface,
+ * get_computer_move(), so that it should be possible to easily replace the
+ * complete game logic, for example.
+ */
 
 /* memory management: Virtual Kernel Allocator (VKA) interface and VSpace */
 static vka_t vka;
@@ -67,10 +74,13 @@ static ps_chardevice_t inputdev;
 
 // ======================================================================
 
+/* possible moves */
 direction_t dir_forward[] = { West, North, East, South};
+
+/* moves in opposite direction of moves in dir_forward[] */
 direction_t dir_back[] = { East, South, West, North};
 
-
+/* mappings from keyboard keys into dir_forward[] for the two players */
 static char *keymap[] = { "jilk", "awds"};
 
 /* speed in cells per second */
@@ -79,6 +89,7 @@ static int speed = 10;
 /* the board is made of cells; cell coordinate (0,0) is in top left corner */
 cell_t board[numCellsX][numCellsY];
 
+/* game state of players */
 player_t players[NUMPLAYERS];
 static player_t* p0 = players + 0;
 static player_t* p1 = players + 1;
@@ -190,12 +201,19 @@ stop_periodic_timer() {
     sel4_timer_handle_single_irq(timer);
 }
 
+
+/*
+ * Get time in ns since tsc_timer was initialized.
+ */
 uint64_t
 get_current_time() {
     return timer_get_time(tsc_timer->timer);
 }
 
 
+/*
+ * We have to loop a couple of time because we exceed hardware limit.
+ */
 static void
 wait_for_timer()
 {
@@ -217,6 +235,11 @@ init_cdev (enum chardev_id id,  ps_chardevice_t* dev) {
 }
 
 
+/*
+ * Check if use input occurred.
+ * @param numHumanPlayers: 1...single player game; 2..two players
+ * @return: 1...cancel game; 0...continue game
+ */
 static int
 handle_user_input(int numHumanPlayers) {
     for (;;) { // (1)
@@ -235,7 +258,7 @@ handle_user_input(int numHumanPlayers) {
                     }
                 }
             }
-            return 0;
+            return 0; // DONE <==
         case 27:
             // ESC key was pressed - quit game
             return 1;
@@ -245,7 +268,8 @@ handle_user_input(int numHumanPlayers) {
         case ' ':
             printf("-- PAUSE --\n");
             while (' ' != ps_cdev_getchar(&inputdev)) {
-                // busy wait
+                // busy waiting (see the "seL4Examples" repo for example
+                // programs that wait for interrupt)
             }
             break;
         default:
@@ -284,7 +308,6 @@ map_color(cell_t element) {
  * but this could be more elaborate...
  * @param pos: location of element
  * @param element: type of cell element (e.g. wall)
- *
  */
 static void
 put_cell(const coord_t pos, cell_t element) {
@@ -292,6 +315,7 @@ put_cell(const coord_t pos, cell_t element) {
     uint32_t color = map_color(element);
     gfx_draw_rect(pos.x * cellWidth, pos.y * cellWidth, cellWidth, cellWidth, color);
 }
+
 
 void
 put_board(const coord_t pos, cell_t element) {
@@ -302,9 +326,6 @@ put_board(const coord_t pos, cell_t element) {
 
 int
 isempty_cell(const coord_t pos) {
-//    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
-//        return CELL_WALL;
-//    }
     int cell = board[pos.x][pos.y];
     return (cell != CELL_P0 && cell != CELL_P1 && cell != CELL_WALL);
 }
@@ -312,9 +333,6 @@ isempty_cell(const coord_t pos) {
 
 cell_t
 get_cell(const coord_t pos) {
-//    if (pos.x < 0 || pos.x >= numCellsX || pos.y < 0 || pos.y >= numCellsY) {
-//        return CELL_WALL;
-//    }
     return board[pos.x][pos.y];
 }
 
@@ -558,7 +576,7 @@ int main()
     /* enable serial driver */
     platsupport_serial_setup_simple(NULL, &simple, &vka);
 
-    printf("\n\n========= starting ========= \n\n");
+    printf("\n\n========= seL4Tron ========= \n\n");
 
     // stack size is configurable via CONFIG_SEL4UTILS_STACK_SIZE
     int err = (int)sel4utils_run_on_stack(&vspace, main_continued, NULL);

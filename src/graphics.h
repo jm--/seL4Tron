@@ -20,10 +20,6 @@ void
 gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo);
 
 
-void
-gfx_poke_fb(const uint32_t offset, const uint8_t val);
-
-
 /*
  * Map complete linear frame buffer.
  */

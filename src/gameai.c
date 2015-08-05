@@ -7,6 +7,16 @@
  *
  */
 
+/*
+ * This module contains the very basic game logic for the computer player(s).
+ * My focus for seL4Tron was on learning about seL4 and not on AI,
+ * so the code here is really not very sophisticated.
+ *
+ * I tried to hack together a simple, rule based "classifier system."
+ * See for example:
+ * http://www.cs.cmu.edu/Groups/AI/html/faqs/ai/genetic/part2/faq-doc-5.html
+ * To keep the code simple, I did not bother to implement a learning component.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +25,8 @@
 #include <utils/attribute.h>
 #include "tron.h"
 
+
+/* index into conditions ("cond") of a rules */
 enum {
     CI_FORWARD_ISEMPTY,
     CI_LEFT_ISEMPTY,
@@ -27,23 +39,30 @@ enum {
     CI_LAST
 };
 
-
-
-
-#define COND_LEN 10
-
+/*
+ * The code handling the game in main.c is in terms of West, North, East, South.
+ * The code in this module is mostly is in "relative" terms: a player can
+ * either MoveForward, Moveleft, or MoveRight.
+ */
 typedef enum { MoveForward = 0, MoveLeft = 1, MoveRight = 2, ActionLen = 3} action_t;
 
+/* size of buffer for conditions */
+#define COND_LEN 10
+
 typedef struct {
+    /* '1' ... condition is true; '0' ... is not true; '#' ... is irrelevant */
     char cond[COND_LEN];
+    /* action to take if rule is selected */
     action_t action;
+    /* probability rule is selected if multiple rules match */
     int weight;
 } rule_t;
 
+/* the rules (classifier list) */
 #define RULES_LEN 20
-
 static rule_t rules[RULES_LEN];
 
+/* number of rules currently in rules[] */
 static int numRules = 0;
 
 /* mapping from enum value to string */
@@ -52,6 +71,10 @@ static char* str_action[] = {"forward", "left", "right"};
 /* mapping from enum value to string */
 static char* str_direction[] = {"West", "North", "East", "South"};
 
+
+/*
+ * Add a rule to rules[].
+ */
 static void
 add_rule(char* cond, action_t action, int weight) {
     assert(numRules < RULES_LEN);
@@ -72,6 +95,11 @@ add_rule(char* cond, action_t action, int weight) {
 }
 
 
+/*
+ * Hand-crafted, hard-coded list of rules. Some are not so smart, and
+ * some obvious ones are missing. These rules are ideally not manually
+ * constructed but self-learned...
+ */
 static void
 init_rules() {
     // 2 of 3 is blocked: there is only one option left,
@@ -118,6 +146,10 @@ init_rules() {
 }
 
 
+/*
+ * Helper function to get new position based on current
+ * position and current direction if action is taken.
+ */
 static coord_t
 get_newpos(coord_t pos, direction_t dir, action_t action) {
     static coord_t delta[DirLength][ActionLen] = {
@@ -130,26 +162,32 @@ get_newpos(coord_t pos, direction_t dir, action_t action) {
     return (coord_t){pos.x + d.x, pos.y + d.y};
 }
 
+
+/*
+ * Helper function: get new direction after action is taken.
+ */
 static direction_t
 get_direction(direction_t dir, action_t action) {
     int delta[] = {0, -1, 1};
     return ((dir + DirLength) + delta[action]) % DirLength;
 }
 
-/* Value recursive functions leave to indicate a cell was visited.
+
+/* The value recursive functions write to cells to indicate that an empty
+ * cell is no longer empty.
  * The value is only used by functions that explore the board for
  * heuristics. Cells marked with this value must be treated
  * like CELL_EMPTY by the actual game play logic.
  */
 static int traceValue;
-/* Cutoff value at which recursion is terminated.
- * */
+
+/* The cutoff value at which recursion is terminated. */
 static int cutoff = 200;
 
 /*
  * Count number of empty cells potentially reachable from position pos.
  * This count is an upper bound, as the allowed moves are more restrictive
- * than the moves exercised here.
+ * than the moves exercised here. (Think "flood fill" in a paint program.)
  * @param pos: current location
  * @param count: number of empty cells found
  */
@@ -176,6 +214,9 @@ count_emptyCells(coord_t pos, int* count) {
 }
 
 
+/*
+ * Helper function for classifier below.
+ */
 static void
 read_detectors_direction(coord_t pos, int* count, char* isempty, char* isok) {
     *count = 0;
@@ -191,6 +232,10 @@ read_detectors_direction(coord_t pos, int* count, char* isempty, char* isok) {
 }
 
 
+/*
+ * The "detector" examines the "environment" (i.g. the game state) and
+ * crafts a "message" (an encoding of the game state).
+ */
 static void
 read_detectors(char *msg, player_t* me, player_t* you) {
     coord_t pos;
@@ -248,8 +293,6 @@ read_detectors(char *msg, player_t* me, player_t* you) {
     //higher order bit
     msg[CI_QUADRANT_D1] = quadrant == 3 || quadrant == 4 ? '1' : '0';
 
-
-
     //------------
     msg[CI_LAST] = 0;
 
@@ -265,18 +308,26 @@ read_detectors(char *msg, player_t* me, player_t* you) {
 }
 
 
-
-
+/*
+ * If you don't add unit tests right away, then you never add them later...
+ */
 UNUSED static void
 test_module() {
+    // more unit tests here...
     assert(get_direction(West, MoveForward) == West);
 }
 
+
+/*
+ * Go through list of rules; compare msg with rule's condition;
+ * if rule applies, then add rule to matches[].
+ * @param msg: an encoding of the perceived environment
+ * @param matches: buffer to take up rules that match
+ * @param numMatches: number of rules in matches[]
+ */
 static void
 match_rules(char* msg, int* matches, int* numMatches) {
-
     *numMatches = 0;
-
     for (int i = 0; i < numRules; i++) {
         int j;
         for (j = 0; msg[j]; j++) {
@@ -294,6 +345,7 @@ match_rules(char* msg, int* matches, int* numMatches) {
         }
     }
 }
+
 
 static void
 debug_print_rules(int* matches, int numMatches, int ruleid) {
@@ -315,6 +367,9 @@ debug_print_rules(int* matches, int numMatches, int ruleid) {
     dprintf("picking rule num: %d\n", ruleid);
 }
 
+/*
+ * Pick one rule from the list of rules in matches[]
+ */
 static action_t
 get_action(int* matches, int numMatches) {
     assert(numMatches < RULES_LEN);
@@ -355,6 +410,14 @@ init_computer_move() {
 }
 
 
+/*
+ * Main entry point of game AI.
+ * @param endTime: the time computer has to decide on a move; unused at the
+ *                 moment but required if one wants to include a mini-max
+ *                 evaluation, for example
+ * @param me: the current, computer player
+ * @param you: the other player (human or other computer)
+ */
 direction_t
 get_computer_move(uint64_t endTime, player_t* me, player_t* you) {
     static char msg[COND_LEN];

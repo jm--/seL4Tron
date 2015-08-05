@@ -12,12 +12,21 @@
 
 #include <stdint.h>
 
+/* number of players: (this game was designed for 0, 1, or 2 human players) */
 #define NUMPLAYERS 2
+
+/* size of the game board in pixels; hard-coded values to keep code simple */
 #define XRES 640
 #define YRES 480
+
+/* width (and height) of a "cell" (the game board is divided into "cells") */
 #define cellWidth 10
-/* lineWidth must be less than or equal cellWidth and an even number */
+
+/* The line width of the trail the players leave behind as they move around.
+   Must be less than or equal to cellWidth and an even number. */
 #define lineWidth 6
+
+/* The number of cells on the board in x and y */
 #define numCellsX (XRES / cellWidth)
 #define numCellsY (YRES / cellWidth)
 

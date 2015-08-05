@@ -33,10 +33,6 @@ gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
     assert(mib.bitsPerPixel == 32);
 }
 
-void
-gfx_poke_fb(const uint32_t offset, const uint8_t val) {
-    fb[offset] = val;
-}
 
 void
 gfx_map_video_ram(ps_io_mapper_t *io_mapper) {
@@ -45,7 +41,7 @@ gfx_map_video_ram(ps_io_mapper_t *io_mapper) {
             mib.physBasePtr,
             size,
             0,
-            PS_MEM_NORMAL);
+            PS_MEM_HW);
     assert(fb != NULL);
 }
 
@@ -60,7 +56,6 @@ gfx_display_testpic() {
         fb[i] = i; //generates some pattern
     }
 }
-
 
 
 void
@@ -140,6 +135,7 @@ gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
     printf("=== VBE end ===========\n");
 }
 
+
 uint32_t
 gfx_map_color(uint8_t r, uint8_t g, uint8_t b) {
     return (r << mib.linRedOff)
@@ -179,7 +175,7 @@ gfx_fill_screen(uint32_t c) {
 /*
  * "Load" a PPM image from the cpio archive and display it on the screen
  * at location (startx, starty) with given opacity level.
- * see https://en.wikipedia.org/wiki/Netpbm_format for PPM format
+ * See https://en.wikipedia.org/wiki/Netpbm_format for PPM format.
  */
 void
 gfx_diplay_ppm(uint32_t startx, uint32_t starty, const char* filename, float opacity) {
