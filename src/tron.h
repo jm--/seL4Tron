@@ -45,12 +45,14 @@ typedef struct player {
 } player_t;
 
 
+int get_loglevel();
 uint64_t get_current_time();
 void init_computer_move();
 direction_t get_computer_move(uint64_t endTime, player_t* me, player_t* you);
 cell_t get_cell(const coord_t pos);
 void put_board(const coord_t pos, cell_t element);
 int isempty_cell(const coord_t pos);
-void waitf();
+
+#define dprintf(...) if (get_loglevel() >= 1) fprintf (stdout, __VA_ARGS__)
 
 #endif /* TRON_H_ */

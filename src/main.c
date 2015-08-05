@@ -65,7 +65,6 @@ static vka_object_t timer_aep;
 /* input character device (e.g. keyboard, COM1) */
 static ps_chardevice_t inputdev;
 
-
 // ======================================================================
 
 direction_t dir_forward[] = { West, North, East, South};
@@ -84,7 +83,20 @@ player_t players[NUMPLAYERS];
 static player_t* p0 = players + 0;
 static player_t* p1 = players + 1;
 
+/* amount of information printed: 0...no extra logging */
+static int loglevel = 0;
 // ======================================================================
+
+
+/*
+ * Return current log level.
+ */
+int
+get_loglevel() {
+    return loglevel;
+}
+
+
 /*
  * Initialize all main data structures.
  *
@@ -227,6 +239,9 @@ handle_user_input(int numHumanPlayers) {
         case 27:
             // ESC key was pressed - quit game
             return 1;
+        case 'm':
+            loglevel = (loglevel + 1) % 2;
+            break;
         case ' ':
             printf("-- PAUSE --\n");
             while (' ' != ps_cdev_getchar(&inputdev)) {
@@ -397,7 +412,7 @@ update_world(player_t* p) {
     /* player p has crashed, so the other player has won */
     player_t* pwinning = p == p0 ? p1 : p0;
     pwinning->score++;
-    printf("GAME OVER: %s wins!\n", pwinning->name);
+    printf("\n\nGAME OVER: %s wins!\n", pwinning->name);
     printf("%s %d wins : %s %d wins\n"
             , p0->name, p0->score
             , p1->name, p1->score);

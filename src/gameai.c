@@ -7,12 +7,13 @@
  *
  */
 
-#include "tron.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <utils/attribute.h>
+#include "tron.h"
 
 enum {
     CI_FORWARD_ISEMPTY,
@@ -252,15 +253,15 @@ read_detectors(char *msg, player_t* me, player_t* you) {
     //------------
     msg[CI_LAST] = 0;
 
-    printf ("me (player %d) : x=%d y=%d dir=%d (%s)\n",
+    dprintf ("me (player %d) : x=%d y=%d dir=%d (%s)\n",
             me->entity, me->pos.x, me->pos.y, me->direction,
             str_direction[me->direction]);
-    printf ("you (player %d): x=%d y=%d dir=%d (%s)\n",
+    dprintf ("you (player %d): x=%d y=%d dir=%d (%s)\n",
             you->entity, you->pos.x, you->pos.y,
             you->direction, str_direction[you->direction]);
-    printf ("coutf=%d countl=%d countr=%d; ", countf, countl, countr);
-    printf ("quadrant=%d\n", quadrant);
-    printf (">> msg: %s\n", msg);
+    dprintf ("coutf=%d countl=%d countr=%d; ", countf, countl, countr);
+    dprintf ("quadrant=%d\n", quadrant);
+    dprintf (">> msg: %s\n", msg);
 }
 
 
@@ -298,20 +299,20 @@ static void
 debug_print_rules(int* matches, int numMatches, int ruleid) {
     int* m = matches;
     for (int i = 0; i < numRules; i++) {
-        printf("num=%2d cond=%s weight=%4d action=%d (%s)", i,
+        dprintf("num=%2d cond=%s weight=%4d action=%d (%s)", i,
                 rules[i].cond, rules[i].weight,
                 rules[i].action, str_action[rules[i].action]);
         if ((m - matches) < numMatches && i == *m) {
             //rule i matched message
-            printf(" <==");
+            dprintf(" <==");
             m++;
         }
         if (i == ruleid) {
-            printf(" *selected*");
+            dprintf(" *selected*");
         }
-        printf("\n");
+        dprintf("\n");
     }
-    printf("picking rule num: %d\n", ruleid);
+    dprintf("picking rule num: %d\n", ruleid);
 }
 
 static action_t
@@ -366,7 +367,7 @@ get_computer_move(uint64_t endTime, player_t* me, player_t* you) {
     action_t action = get_action(matches, numMatches);
 
     direction_t newdir = get_direction(me->direction, action);
-    printf("computer moves %d (%s)\n", newdir, str_direction[newdir]);
-    printf("--------------------\n");
+    dprintf("computer moves %d (%s)\n", newdir, str_direction[newdir]);
+    dprintf("--------------------\n");
     return newdir;
 }
