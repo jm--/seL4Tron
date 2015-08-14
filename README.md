@@ -1,4 +1,4 @@
-# seL4Tron
+#seL4Tron
 
 seL4Tron is a simple version of the snake-style game Tron specifically
 designed to run as a main task on top of a seL4 microkernel.
@@ -11,23 +11,28 @@ while doing so. It includes the following features:
 
 
 #License
-seL4Tron is copyright (c) 2015, Josef Mihalits, and may be distributed and
+Copyright (c) 2015, Josef Mihalits. seL4Tron may be distributed and
 modified according to the terms of the BSD 2-Clause license. Please see
 "COPYING" for details.
 
 The seL4 userland tools and libraries (not part of this distribution) are
-mostly released under the BSD license. The seL4 microkernel, which is also not
-included in this distribution, is released under GPL Version 2.
+mostly released under the BSD license. The seL4 microkernel (not
+included in this distribution) is released under GPL Version 2.
 Please see http://sel4.systems/Download/license.pml for details.
 
 
-# Preliminary Build Instructions
-## A) Canonical build instructions
+#Build Instructions
 1) Install `repo` and all prerequisites as described here http://sel4.systems/Download/
 
 2) Install additional prerequisites
 * GRUB - boot loader (we use the tool `grub-mkrescue`)
-* xorriso - ISO image manipulation used by GRUB
+* xorriso version 1.2.9 or later - tool for manipulating ISO 9660 images
+
+If you use `apt`, then for example:
+```
+apt-get install grub-common
+apt-get install xorriso
+```
 
 3) Download and build the source code (kernel, libraries, seL4Tron)
 ```
@@ -45,10 +50,10 @@ in the ./images folder.
 ```
 make run
 ```
-Starts QEMU with a VM booting the ISO image.
+Starts QEMU with a virtual machine booting the ISO image.
 
 
-#Instructions for Game Play
+#Game Play
 
 Navigation:
 * The keys for the green player are: `j`, `i`, `l`, `k` (left, up, right, down)
